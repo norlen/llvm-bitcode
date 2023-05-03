@@ -31,7 +31,7 @@ impl<const N: usize> Fields<N> {
         Self(SmallVec::new())
     }
 
-    pub fn string(&self, index: usize) -> Option<String> {
+    pub fn to_string(&self, index: usize) -> Option<String> {
         if index >= self.len() {
             return None;
         }

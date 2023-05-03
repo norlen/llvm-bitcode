@@ -138,22 +138,24 @@ impl IdentificationCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum ModuleCode {
-    /// `MODULE_CODE_VERSION`
+    /// `MODULE_CODE_VERSION`: `[version#]`.
     Version = 1,
 
-    /// `MODULE_CODE_TRIPLE`
+    /// `MODULE_CODE_TRIPLE`: `[ch x N]`.
     Triple = 2,
 
-    /// `MODULE_CODE_DATALAYOUT`
+    /// `MODULE_CODE_DATALAYOUT`: `[ch x N]`.
     Datalayout = 3,
 
-    /// `MODULE_CODE_ASM`
+    /// `MODULE_CODE_ASM`: `[ch x N]`.
     Asm = 4,
 
-    /// `MODULE_CODE_SECTIONNAME`
+    /// `MODULE_CODE_SECTIONNAME`: `[ch x N]`.
     SectionName = 5,
 
-    /// `MODULE_CODE_DEPLIB`
+    /// `MODULE_CODE_DEPLIB`: `[ch x N]`.
+    ///
+    /// Deprecated, only used to read old bitcode files.
     DepLib = 6,
 
     /// `MODULE_CODE_GLOBALVAR`
@@ -165,13 +167,13 @@ pub enum ModuleCode {
     /// `MODULE_CODE_ALIAS_OLD`
     AliasOld = 9,
 
-    /// `MODULE_CODE_GCNAME`
+    /// `MODULE_CODE_GCNAME` `[ch x N]`.
     GcName = 11,
 
     /// `MODULE_CODE_COMDAT`
     Comdat = 12,
 
-    /// `MODULE_CODE_VSTOFFSET`
+    /// `MODULE_CODE_VSTOFFSET`: `[vst_offset#]`.
     VstOffset = 13,
 
     /// `MODULE_CODE_ALIAS`
@@ -180,10 +182,10 @@ pub enum ModuleCode {
     /// `MODULE_CODE_METADATA_VALUES_UNUSED`
     MetadataValuesUnused = 15,
 
-    /// `MODULE_CODE_SOURCE_FILENAME`
+    /// `MODULE_CODE_SOURCE_FILENAME`: `[ch x N]`.
     Filename = 16,
 
-    /// `MODULE_CODE_HASH`
+    /// `MODULE_CODE_HASH`: `[i32 * 5]`.
     Hash = 17,
 
     /// `MODULE_CODE_IFUNC`

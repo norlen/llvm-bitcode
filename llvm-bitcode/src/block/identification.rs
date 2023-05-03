@@ -86,7 +86,11 @@ impl Identification {
             let code = IdentificationCode::try_from(code as u8)?;
             match code {
                 IdentificationCode::Producer => {
-                    producer = Some(record.string(0).ok_or(IdentificationError::BadProducer)?);
+                    producer = Some(
+                        record
+                            .to_string(0)
+                            .ok_or(IdentificationError::BadProducer)?,
+                    );
                 }
                 IdentificationCode::Epoch => {
                     let e = *record.get(0).ok_or(IdentificationError::BadEpoch)?;

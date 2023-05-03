@@ -223,7 +223,7 @@ pub fn parse_modules<T: AsRef<[u8]>>(
     bitstream.enter_block(block)?;
 
     let module_info = parse_module(bitstream)?;
-    println!("ModuleInfo: {module_info:?}");
+    println!("ModuleInfo: {module_info:#?}");
 
     Ok(())
 }
