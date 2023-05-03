@@ -92,7 +92,7 @@ use llvm_bitstream::{BitstreamReader, CursorError, Entry, ReaderError};
 use num_enum::TryFromPrimitiveError;
 use tracing::{info, warn};
 use typed_arena::Arena;
-pub use util::{Fields, FieldsIter, RecordError};
+pub use util::fields::{Fields, FieldsIter, RecordError};
 
 use crate::{
     bitcodes::TopLevelBlockId,
