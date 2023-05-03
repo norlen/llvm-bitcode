@@ -86,7 +86,9 @@ impl TryFrom<u64> for OperandEncoding {
             3 => Ok(OperandEncoding::Array),
             4 => Ok(OperandEncoding::Char6),
             5 => Ok(OperandEncoding::Blob),
-            _ => panic!("invalid encoding"),
+            _ => Err(ReaderError::InvalidAbbreviationRecord(
+                "invalid abbreviation operand encoding",
+            )),
         }
     }
 }

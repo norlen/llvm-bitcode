@@ -93,7 +93,7 @@ impl Identification {
                     );
                 }
                 IdentificationCode::Epoch => {
-                    let e = *record.get(0).ok_or(IdentificationError::BadEpoch)?;
+                    let e = *record.first().ok_or(IdentificationError::BadEpoch)?;
                     if e != IdentificationCode::BITCODE_CURRENT_EPOCH {
                         return Err(IdentificationError::IncompatibleEpoch(e as u8));
                     }

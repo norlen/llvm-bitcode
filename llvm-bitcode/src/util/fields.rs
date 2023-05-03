@@ -10,6 +10,7 @@ pub enum RecordError {
     IncompleteRecord,
 }
 
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct Fields<const N: usize>(SmallVec<[u64; N]>);
 
 impl<const N: usize> Deref for Fields<N> {
@@ -117,7 +118,7 @@ impl<'a, const N: usize> FieldsIter<'a, N> {
         self.record.is_empty()
     }
 
-    pub fn next(&mut self) -> Result<u64, RecordError> {
+    pub fn next_or_err(&mut self) -> Result<u64, RecordError> {
         self.index += 1;
         self.record
             .get(self.index - 1)
@@ -125,10 +126,10 @@ impl<'a, const N: usize> FieldsIter<'a, N> {
             .ok_or(RecordError::IncompleteRecord)
     }
 
-    pub fn maybe_next(&mut self) -> Option<u64> {
-        self.index += 1;
-        self.record.get(self.index - 1).copied()
-    }
+    // pub fn maybe_next(&mut self) -> Option<u64> {
+    //     self.index += 1;
+    //     self.record.get(self.index - 1).copied()
+    // }
 
     // pub fn unpack<const N: usize>(&mut self) -> Result<[u64; N], ReaderError> {
     //     if self.record.fields().len() < N {
@@ -151,7 +152,7 @@ impl<'a, const N: usize> FieldsIter<'a, N> {
         let len = self.len() - self.index;
         let mut s = String::with_capacity(len);
 
-        while let Some(value) = self.maybe_next() {
+        for value in self.by_ref() {
             let byte = match u8::try_from(value) {
                 Ok(v) => Some(v),
                 Err(_) => None,

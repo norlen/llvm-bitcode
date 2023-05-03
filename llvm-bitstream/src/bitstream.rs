@@ -378,7 +378,7 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
     ///
     /// # Errors
     ///
-    /// Can return CursorError::UnexpectedEOF if the bitstream ends early.
+    /// Can return [`CursorError::UnexpectedEOF`] if the bitstream ends early.
     ///
     /// If it cannot parse define abbreviation records encountered in the bitstream [`ReaderError::InvalidAbbreviationRecord`]
     /// is returned.

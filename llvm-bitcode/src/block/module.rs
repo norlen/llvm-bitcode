@@ -253,7 +253,7 @@ pub fn parse_module<T: AsRef<[u8]>>(
                 };
                 match code {
                     ModuleCode::Version => {
-                        let version = *record.get(0).ok_or(ModuleError::InvalidVersionRecord)?;
+                        let version = *record.first().ok_or(ModuleError::InvalidVersionRecord)?;
                         module_info.version(version);
                     }
                     ModuleCode::Triple => {
@@ -302,7 +302,7 @@ pub fn parse_module<T: AsRef<[u8]>>(
                     ModuleCode::Comdat => info!("Comdat record"),
                     ModuleCode::VstOffset => {
                         let vst_offset =
-                            *record.get(0).ok_or(ModuleError::InvalidVstOffsetRecord)?;
+                            *record.first().ok_or(ModuleError::InvalidVstOffsetRecord)?;
 
                         // LLVM decrements the vst offset by 1, noting that because the offset is
                         // relative to one word before the start of the identification or module
@@ -325,7 +325,7 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         }
                         let mut hash = [0u32; 5];
                         for (i, v) in record.iter().copied().enumerate() {
-                            hash[i] = v.try_into().map_err(|_| {
+                            hash[i] = v.try_into().map_err(|_ignored| {
                                 error!("Unexpected high bits set in hash");
                                 ModuleError::InvalidHashRecord
                             })?;
