@@ -11,4 +11,5 @@ mod types;
 mod vst;
 
 pub use identification::{Identification, IdentificationError};
-pub use string_table::{Strtab, StrtabError};
+pub use string_table::{StringTable, StringTableError};
+pub use symbol_table::{SymbolTable, SymbolTableError};

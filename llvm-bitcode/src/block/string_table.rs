@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum StrtabError {
+pub enum StringTableError {
     /// Failed to parse the string table.
     #[error("Invalid string table data")]
     InvalidStringTable,
@@ -23,13 +23,15 @@ pub enum StrtabError {
 /// Essentially an LLVM `STRTAB` block, where a string can be retrieved by providing an offset
 /// into the table and the size.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Strtab(Vec<u8>);
+pub struct StringTable(Vec<u8>);
 
-impl Strtab {
+impl StringTable {
     /// Parse string table block.
     ///
     /// Should only contain a single blob of string data.
-    pub fn parse<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<Self, StrtabError> {
+    pub fn parse<T: AsRef<[u8]>>(
+        bitstream: &mut BitstreamReader<T>,
+    ) -> Result<Self, StringTableError> {
         let mut data = None;
 
         let mut record = Fields::new();
@@ -40,8 +42,8 @@ impl Strtab {
             }
         }
 
-        let data = data.ok_or(StrtabError::InvalidStringTable)?;
-        Ok(Strtab(data))
+        let data = data.ok_or(StringTableError::InvalidStringTable)?;
+        Ok(StringTable(data))
     }
 
     /// Get a an owned string from the string table.

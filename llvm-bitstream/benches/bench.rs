@@ -10,7 +10,10 @@ fn read_bitcode<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<()
         let entry = bitstream.advance()?.expect("Should never end");
 
         match entry {
-            Entry::SubBlock(_) => parse_block(bitstream)?,
+            Entry::SubBlock(block) => {
+                bitstream.enter_block(block)?;
+                parse_block(bitstream)?;
+            }
             Entry::Record(_) => panic!("no records here"),
         };
     }
@@ -18,11 +21,12 @@ fn read_bitcode<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<()
 }
 
 fn parse_block<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<()> {
-    let mut record: SmallVec<[u64; 32]> = SmallVec::new();
+    let mut record: SmallVec<[u64; 64]> = SmallVec::new();
 
     while let Some(entry) = bitstream.advance()? {
         match entry {
-            Entry::SubBlock(_) => {
+            Entry::SubBlock(block) => {
+                bitstream.enter_block(block)?;
                 parse_block(bitstream)?;
             }
             Entry::Record(entry) => {
@@ -35,18 +39,22 @@ fn parse_block<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<()>
     Ok(())
 }
 
+fn parse<T: AsRef<[u8]>>(bytes: T) -> Result<()> {
+    let mut bitstream = BitstreamReader::from_bytes(bytes)?;
+    read_bitcode(&mut bitstream)?;
+    Ok(())
+}
+
 fn criterion_benchmark(c: &mut Criterion) {
     let bitcode_small = include_bytes!("../../sample/initial-1f15a977ee5b5e38.bc");
     let bitcode_large = include_bytes!("../../sample/symex-f4b190effaa6c89b.bc");
 
     c.bench_function("bitcode small", |b| {
-        let mut bitstream = BitstreamReader::from_bytes(bitcode_small).unwrap();
-        b.iter(|| read_bitcode(black_box(&mut bitstream)))
+        b.iter(|| parse(black_box(bitcode_small)))
     });
 
     c.bench_function("bitcode large", |b| {
-        let mut bitstream = BitstreamReader::from_bytes(bitcode_large).unwrap();
-        b.iter(|| read_bitcode(black_box(&mut bitstream)))
+        b.iter(|| parse(black_box(bitcode_large)))
     });
 }
 

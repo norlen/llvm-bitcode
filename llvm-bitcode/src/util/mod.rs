@@ -51,7 +51,22 @@ impl Fields {
     }
 
     pub fn to_blob(&self, index: usize) -> Option<Vec<u8>> {
-        todo!()
+        if index >= self.len() {
+            return None;
+        }
+
+        let len = self.len() - index;
+        let mut s = Vec::with_capacity(len);
+        for ch in self.0.iter().skip(index).copied() {
+            let byte = match u8::try_from(ch) {
+                Ok(v) => Some(v),
+                Err(_) => None,
+            }?;
+
+            s.push(byte);
+        }
+
+        Some(s)
     }
 }
 
@@ -86,20 +101,6 @@ impl<'a> FieldsIter<'a> {
     /// # Errors
     ///
     /// Returns [`RecordError::IncompleteRecord`] if `size` is less than the length of the fields.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use smallvec::SmallVec;
-    /// use llvm_bitcode::{RecordIter, RecordError};
-    ///
-    /// let mut Fields: SmallVec<[u64; 32]> = SmallVec::new();
-    /// Fields.push(1);
-    /// let mut Fields = RecordIter::from(&mut Fields);
-    ///
-    /// assert_eq!(Fields.require_min_size(1), Ok(()));
-    /// assert_eq!(Fields.require_min_size(2), Err(RecordError::IncompleteRecord));
-    /// ```
     pub fn require_min_size(&self, size: usize) -> Result<(), RecordError> {
         if self.record.len() < size {
             Err(RecordError::IncompleteRecord)

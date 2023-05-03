@@ -295,9 +295,9 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
     ///     let mut record: SmallVec<[u64; 32]> = SmallVec::new();
     ///     while let Some(entry) = bitstream.advance()? {
     ///         match entry {
-    ///             Entry::SubBlock(block) => {
+    ///             Entry::SubBlock(_) => {
     ///                 // Process subblock.
-    ///                 bitstream.skip_block(block)?;
+    ///                 bitstream.skip_block()?;
     ///             }
     ///             Entry::Record(entry) => {
     ///                 let _code = bitstream.read_record(entry, &mut record)?;
@@ -323,9 +323,9 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
     ///         let entry = bitstream.advance()?.expect("Should not encounter leave block here");
     ///
     ///         match entry {
-    ///             Entry::SubBlock(block) => {
+    ///             Entry::SubBlock(_) => {
     ///                 // Process top-level block.
-    ///                 bitstream.skip_block(block)?;
+    ///                 bitstream.skip_block()?;
     ///             }
     ///             Entry::Record(_) => {
     ///                 // At the top-level we should never encounter records.
@@ -352,16 +352,11 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
                 }
                 AbbreviationId::EnterSubblock => {
                     let id = self.cursor.read_vbr(Self::BLOCK_ID_WIDTH)?;
-                    let size = self.enter_block(id)?;
-                    let bit_position = self.cursor.bit_position();
 
-                    let block = Block {
-                        id,
-                        bit_position,
-                        size,
-                    };
+                    let block = Block { id };
 
                     if block.id == Self::BLOCKINFO_BLOCK_ID {
+                        self.enter_block(block)?;
                         self.parse_block_info()?;
                         continue;
                     }
@@ -383,6 +378,14 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
     ///
     /// # Errors
     ///
+    /// Can return CursorError::UnexpectedEOF if the bitstream ends early.
+    ///
+    /// If it cannot parse define abbreviation records encountered in the bitstream [`ReaderError::InvalidAbbreviationRecord`]
+    /// is returned.
+    ///
+    /// If blocks are skipped and block length would put the bitstream over the end of the underlying
+    /// buffer [`CursorError::InvalidPosition`] is returned
+    ///
     /// # Examples
     ///
     /// ```
@@ -401,11 +404,70 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
     pub fn records(&mut self) -> Result<Option<Record>, ReaderError> {
         while let Some(entry) = self.advance()? {
             match entry {
-                Entry::SubBlock(block) => self.skip_block(block)?,
+                Entry::SubBlock(_) => self.skip_block()?,
                 Entry::Record(record) => return Ok(Some(record)),
             }
         }
         Ok(None)
+    }
+
+    /// Handle entering a subblock.
+    ///
+    /// If a [`Entry::SubBlock`] has been parsed this must be called, or the block must be skipped.
+    ///
+    /// # Errors
+    ///
+    /// If it cannot read from the cursor a [`CursorError`] is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use llvm_bitstream::{BitstreamReader, Entry, ReaderError};
+    ///
+    /// fn parse<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<(), ReaderError> {
+    ///     // Top-level blocks should have been handled already. These should be subblocks or records.
+    ///     while let Some(entry) = bitstream.advance()? {
+    ///         match entry {
+    ///             Entry::SubBlock(block) => {
+    ///                 bitstream.enter_block(block)?;
+    ///                 parse(bitstream)?; // Go through subblock.
+    ///             }
+    ///             Entry::Record(entry) => {
+    ///                 bitstream.skip_record(entry)?;
+    ///             }
+    ///         }
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn enter_block(&mut self, block: Block) -> Result<u64, ReaderError> {
+        // A subblock is defined by:
+        //   `[ENTER_SUBBLOCK, block_id (vbr8), new_abbreviation_len (vbr4), <align 32-bits>, block_len (32-bits)]`
+        //
+        // and before we enter this function the abbrevation id `ENTER_SUBBLOCK` should have been consumed.
+        let new_abbreviation_len = self.cursor.read_vbr(Self::CODE_LEN_WIDTH)?;
+        if new_abbreviation_len == 0 || new_abbreviation_len > Self::MAXIMUM_CODE_LEN_CHUNK_SIZE {
+            return Err(ReaderError::InvalidCodeSize);
+        }
+
+        self.cursor.align_32bits();
+        let block_len = self.cursor.read(Self::BLOCK_SIZE_WIDTH)?;
+
+        // Add outer block to the scope while creating a fresh block for the new subblock.
+        let previous_block = std::mem::replace(
+            &mut self.current_block,
+            StreamBlock::from_code_size(new_abbreviation_len),
+        );
+        self.block_scope.push(previous_block);
+
+        // Add abbreviations specific to this block.
+        if let Some(block) = self.block_info_records.get(&block.id) {
+            self.current_block
+                .abbreviations
+                .extend(block.abbreviations.iter().cloned());
+        }
+
+        Ok(block_len)
     }
 
     /// Read record
@@ -457,17 +519,23 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
     /// fn skip_blocks<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<(), ReaderError> {
     ///     while let Some(entry) = bitstream.advance()? {
     ///         match entry {
-    ///             Entry::SubBlock(block) => bitstream.skip_block(block)?,
+    ///             Entry::SubBlock(_) => bitstream.skip_block()?,
     ///             Entry::Record(_) => {}, // Process record.
     ///         }
     ///     }
     ///     Ok(())
     /// }
     /// ```
-    pub fn skip_block(&mut self, block: Block) -> Result<(), ReaderError> {
-        self.leave_block()?;
+    pub fn skip_block(&mut self) -> Result<(), ReaderError> {
+        let new_abbreviation_len = self.cursor.read_vbr(Self::CODE_LEN_WIDTH)?;
+        if new_abbreviation_len == 0 || new_abbreviation_len > Self::MAXIMUM_CODE_LEN_CHUNK_SIZE {
+            return Err(ReaderError::InvalidCodeSize);
+        }
 
-        let seek_to = block.bit_position + block.size * 4 * 8;
+        self.cursor.align_32bits();
+        let block_len = self.cursor.read(Self::BLOCK_SIZE_WIDTH)?;
+
+        let seek_to = self.cursor.bit_position() + block_len * 4 * 8;
         self.cursor.set_bit_position(seek_to)?;
         Ok(())
     }
@@ -587,9 +655,9 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
             // Perform raw advancing as we have to handle *all* things here, the define abbrevations
             // should not be added to our current
             match self.raw_advance()? {
-                RawEntry::SubBlock(block) => {
+                RawEntry::SubBlock(_) => {
                     // Should not encounter subblocks here, but if we do, skip over those.
-                    self.skip_block(block)?;
+                    self.skip_block()?;
                 }
                 RawEntry::EndBlock => break,
                 RawEntry::DefineAbbreviation => {
@@ -700,52 +768,14 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
             }
             AbbreviationId::EnterSubblock => {
                 let id = self.cursor.read_vbr(Self::BLOCK_ID_WIDTH)?;
-                let size = self.enter_block(id)?;
-                let bit_position = self.cursor.bit_position();
 
-                RawEntry::SubBlock(Block {
-                    id,
-                    bit_position,
-                    size,
-                })
+                RawEntry::SubBlock(Block { id })
             }
             AbbreviationId::Unabbreviated => RawEntry::Record(Record::new(None)),
             AbbreviationId::ApplicationDefined(n) => RawEntry::Record(Record::new(Some(n as u32))),
         };
 
         Ok(entry)
-    }
-
-    /// Handle entering a subblock.
-    ///
-    /// A subblock is defined by:
-    ///   `[ENTER_SUBBLOCK, block_id (vbr8), new_abbreviation_len (vbr4), <align 32-bits>, block_len (32-bits)]`
-    ///
-    /// and before we enter this function the abbrevation id `ENTER_SUBBLOCK` should have been consumed.
-    fn enter_block(&mut self, block_id: u32) -> Result<u64, ReaderError> {
-        let new_abbreviation_len = self.cursor.read_vbr(Self::CODE_LEN_WIDTH)?;
-        if new_abbreviation_len == 0 || new_abbreviation_len > Self::MAXIMUM_CODE_LEN_CHUNK_SIZE {
-            return Err(ReaderError::InvalidCodeSize);
-        }
-
-        self.cursor.align_32bits();
-        let block_len = self.cursor.read(Self::BLOCK_SIZE_WIDTH)?;
-
-        // Add outer block to the scope while creating a fresh block for the new subblock.
-        let previous_block = std::mem::replace(
-            &mut self.current_block,
-            StreamBlock::from_code_size(new_abbreviation_len),
-        );
-        self.block_scope.push(previous_block);
-
-        // Add abbreviations specific to this block.
-        if let Some(block) = self.block_info_records.get(&block_id) {
-            self.current_block
-                .abbreviations
-                .extend(block.abbreviations.iter().cloned());
-        }
-
-        Ok(block_len)
     }
 
     /// Leave the current block.

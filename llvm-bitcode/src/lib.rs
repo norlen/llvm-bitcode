@@ -86,30 +86,48 @@ mod context;
 mod record;
 mod util;
 
-use block::{IdentificationError, StrtabError};
-use llvm_bitstream::{BitstreamReader, Entry, ReaderError};
+use block::{Identification, IdentificationError, StringTableError, SymbolTableError};
+use context::Context;
+use llvm_bitstream::{BitstreamReader, CursorError, Entry, ReaderError};
 use num_enum::TryFromPrimitiveError;
-use tracing::info;
+use tracing::{info, warn};
 use typed_arena::Arena;
 pub use util::{Fields, FieldsIter, RecordError};
 
-use crate::bitcodes::TopLevelBlockId;
+use crate::{
+    bitcodes::TopLevelBlockId,
+    block::{StringTable, SymbolTable},
+};
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ParserError {
+    /// Failed to parse the code to a valid [`TopLevelBlockId`].
+    #[error("No discriminant in enum `TopLevelBlockId` matches the value `{0}`")]
+    InvalidTopLevelBlockId(u8),
+
+    /// Unexpected termination of the bitstream.
+    #[error("Found endblock at top-level, invalid bitstream")]
+    InvalidBitstream,
+
+    /// Failed to parse the identification block.
     #[error("{0}")]
     IdentificationError(#[from] IdentificationError),
 
+    /// Failed to parse the string table block.
     #[error("{0}")]
-    StrtabError(#[from] StrtabError),
+    StringTableError(#[from] StringTableError),
+
+    /// Failed to parse the symbol table block.
+    #[error("{0}")]
+    SymbolTableError(#[from] SymbolTableError),
 
     /// Error from the underlying [`BitstreamReader`].
     #[error("{0}")]
     ReaderError(#[from] ReaderError),
 
-    /// Failed to parse the code to a valid [`TopLevelBlockId`].
-    #[error("No discriminant in enum `TopLevelBlockId` matches the value `{0}`")]
-    InvalidTopLevelBlockId(u8),
+    /// Error from the underlying `BitstreamCursor`.
+    #[error("{0}")]
+    CursorError(#[from] CursorError),
 }
 
 impl From<TryFromPrimitiveError<TopLevelBlockId>> for ParserError {
@@ -122,6 +140,7 @@ impl From<TryFromPrimitiveError<TopLevelBlockId>> for ParserError {
 pub fn parse<T: AsRef<[u8]>>(bytes: T) -> Result<(), ParserError> {
     let mut bitstream = BitstreamReader::from_bytes(bytes)?;
     parse_modules(&mut bitstream)?;
+
     Ok(())
 }
 
@@ -130,62 +149,71 @@ pub fn parse_modules<T: AsRef<[u8]>>(
 ) -> Result<(), ParserError> {
     // Parse top-level modules.
     //
-    // We have to take a little more care here, our first entry should be a top-level block. But,
-    // when the stream has been exhausted we'll get `None` back, since we don't have a "modules"
-    // block.
+    // We have to take a little more care here compared to when we parse subblocks. The top-level
+    // blocks are "free standing" and are not enclosed in enter/leave blocks. After a top-level
+    // block has been parsed, if the bitstream is exhausted, we are done.
 
-    // let type_arena = Arena::new();
-    // let string_arena = Arena::new();
-    // let attributes_group_arena = Arena::new();
-    // let value_arena = Arena::new();
-    // let mut context = Context::new(
-    //     &type_arena,
-    //     &string_arena,
-    //     &attributes_group_arena,
-    //     &value_arena,
-    // );
+    let mut ctx = Context::new();
 
-    // let mut identification = None;
-
-    // let mut module_bitstream = None;
+    // Parse all blocks except for the module block. We want to have parsed the string table
+    // beforehand, and it's typically after the module block in the bitstream. Thus, we parse
+    // everything but that before resuming at the module block.
+    //
+    // Here, bitcode files can also be concatenated together, and thus we can get more than one
+    // set of top-level blocks. This is currently not supported.
+    let mut module_block_location = None;
     while !bitstream.cursor().is_empty() {
         let block = match bitstream.advance()? {
             Some(entry) => match entry {
                 Entry::SubBlock(block) => block,
-                Entry::Record(_) => todo!(),
+                Entry::Record(entry) => {
+                    warn!("Record at top-level: skipping");
+                    bitstream.skip_record(entry)?;
+                    continue;
+                }
             },
-            None => todo!(),
+            None => return Err(ParserError::InvalidBitstream),
         };
-        let block_id = TopLevelBlockId::try_from(block.id as u8)?;
+
+        let Some(block_id) = TopLevelBlockId::try_from(block.id as u8).ok() else {
+            warn!("Found unknown top-level block id: {}: skipping", block.id);
+            bitstream.skip_block()?;
+            continue;
+        };
 
         // We only expect top-level blocks here.
-        use TopLevelBlockId::*;
         match block_id {
-            Identification => {
-                info!("Identification");
-                bitstream.skip_block(block)?;
-                // identification = Some(parse_identification(bitstream)?);
+            TopLevelBlockId::Identification => {
+                info!("Parse Identification block");
+                bitstream.enter_block(block)?;
+                let identification = Identification::parse(bitstream)?;
+                ctx.set_identification(identification);
             }
-            Module => {
-                info!("Module");
-                bitstream.skip_block(block)?;
-                // module_bitstream = Some(bitstream.clone());
-                // bitstream.skip().unwrap();
+            TopLevelBlockId::Module => {
+                module_block_location = Some(bitstream.cursor().bit_position());
+                bitstream.skip_block()?;
             }
-            StringTable => {
-                info!("StringTable");
-                bitstream.skip_block(block)?;
-                // let strtab = parse_strtab(bitstream).unwrap();
-                // context.set_strtab(strtab);
+            TopLevelBlockId::StringTable => {
+                info!("Parse StringTable block");
+                bitstream.enter_block(block)?;
+                let string_table = StringTable::parse(bitstream)?;
+                ctx.set_string_table(string_table);
             }
-            Symtab => {
-                info!("Symtab");
-                bitstream.skip_block(block)?;
-                // bitstream.skip().unwrap();
-                // symtab = Some(SymtabBlock::parse(bitstream)?);
+            TopLevelBlockId::Symtab => {
+                info!("Parse Symtab block");
+                bitstream.enter_block(block)?;
+                let symbol_table = SymbolTable::parse(bitstream)?;
+                ctx.set_symbol_table(symbol_table);
             }
         }
     }
+
+    // Restart parsing to the module block and resume there.
+    bitstream
+        .mut_cursor()
+        .set_bit_position(module_block_location.expect("Could not find module block"));
+
+    bitstream.skip_block()?;
 
     // let _ = parse_module(&mut module_bitstream.unwrap(), &mut context).unwrap();
 

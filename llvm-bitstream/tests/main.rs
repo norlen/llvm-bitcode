@@ -8,7 +8,10 @@ fn read_bitcode<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<()
         let entry = bitstream.advance()?.expect("Should never end");
 
         match entry {
-            Entry::SubBlock(_) => parse_block(bitstream)?,
+            Entry::SubBlock(block) => {
+                bitstream.enter_block(block)?;
+                parse_block(bitstream)?;
+            }
             Entry::Record(_) => panic!("no records here"),
         };
     }
@@ -20,7 +23,8 @@ fn parse_block<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>) -> Result<()>
 
     while let Some(entry) = bitstream.advance()? {
         match entry {
-            Entry::SubBlock(_) => {
+            Entry::SubBlock(block) => {
+                bitstream.enter_block(block)?;
                 parse_block(bitstream)?;
             }
             Entry::Record(entry) => {

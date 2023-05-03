@@ -19,7 +19,10 @@ pub fn parse_bitcode<T: AsRef<[u8]>>(bytes: T) -> anyhow::Result<()> {
             .ok_or_else(|| anyhow!("Encountered end block at the top-level"))?;
 
         match entry {
-            Entry::SubBlock(block) => parse_block(&mut bitstream, block, 0)?,
+            Entry::SubBlock(block) => {
+                bitstream.enter_block(block)?;
+                parse_block(&mut bitstream, block, 0)?;
+            }
             Entry::Record(_) => return Err(anyhow!("Found record at the top-level")),
         };
     }
@@ -98,6 +101,7 @@ fn parse_block<T: AsRef<[u8]>>(
     while let Some(entry) = bitstream.advance()? {
         match entry {
             Entry::SubBlock(block) => {
+                bitstream.enter_block(block)?;
                 parse_block(bitstream, block, level + 1)?;
             }
             Entry::Record(entry) => {
