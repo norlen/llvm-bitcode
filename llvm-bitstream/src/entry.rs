@@ -14,6 +14,9 @@ pub struct Block {
     /// Id for the block.
     pub id: u32,
 
+    /// Starting bit position in the bitstream for the block.
+    pub bit_position: u64,
+
     /// Length of the block in bytes.
     pub size: u64,
 }

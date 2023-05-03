@@ -353,7 +353,13 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
                 AbbreviationId::EnterSubblock => {
                     let id = self.cursor.read_vbr(Self::BLOCK_ID_WIDTH)?;
                     let size = self.enter_block(id)?;
-                    let block = Block { id, size };
+                    let bit_position = self.cursor.bit_position();
+
+                    let block = Block {
+                        id,
+                        bit_position,
+                        size,
+                    };
 
                     if block.id == Self::BLOCKINFO_BLOCK_ID {
                         self.parse_block_info()?;
@@ -459,7 +465,9 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
     /// }
     /// ```
     pub fn skip_block(&mut self, block: Block) -> Result<(), ReaderError> {
-        let seek_to = self.cursor.bit_position() + block.size * 4 * 8;
+        self.leave_block()?;
+
+        let seek_to = block.bit_position + block.size * 4 * 8;
         self.cursor.set_bit_position(seek_to)?;
         Ok(())
     }
@@ -632,7 +640,7 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
         Ok(())
     }
 
-    /// Return the underlying [`BitstreamCursor`].
+    /// Borrow the underlying [`BitstreamCursor`].
     ///
     /// # Examples
     ///
@@ -646,6 +654,23 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
     /// ```
     pub fn cursor(&self) -> &BitstreamCursor<T> {
         &self.cursor
+    }
+
+    /// Mutably borrow the underlying [`BitstreamCursor`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use llvm_bitstream::{BitstreamReader, Entry, ReaderError};
+    ///
+    /// fn cursor<T: AsRef<[u8]>>(bitstream: &mut BitstreamReader<T>, new_position: u64) -> Result<(), ReaderError> {
+    ///     let cursor = bitstream.mut_cursor();
+    ///     cursor.set_bit_position(new_position)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn mut_cursor(&mut self) -> &mut BitstreamCursor<T> {
+        &mut self.cursor
     }
 
     /// Advance at the lowest level.
@@ -676,7 +701,13 @@ impl<T: AsRef<[u8]>> BitstreamReader<T> {
             AbbreviationId::EnterSubblock => {
                 let id = self.cursor.read_vbr(Self::BLOCK_ID_WIDTH)?;
                 let size = self.enter_block(id)?;
-                RawEntry::SubBlock(Block { id, size })
+                let bit_position = self.cursor.bit_position();
+
+                RawEntry::SubBlock(Block {
+                    id,
+                    bit_position,
+                    size,
+                })
             }
             AbbreviationId::Unabbreviated => RawEntry::Record(Record::new(None)),
             AbbreviationId::ApplicationDefined(n) => RawEntry::Record(Record::new(Some(n as u32))),
