@@ -1,0 +1,26 @@
+[package]
+name = "llvm-bitstream"
+version = "0.1.0"
+description = "LLVM bitstream reader"
+authors = ["norlen <joacim.norlen@gmail.com>"]
+categories = ["parsing"]
+keywords = ["llvm", "parsing", "bitcode"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+#repository = "https://github.com/norlen/llvm-bitcode"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0"
+tracing = "0.1.37"
+num_enum = "0.6.0"
+byteorder = "1.4.3"
+smallvec = { version = "1.10.0", features = ["union", "const_generics", "const_new"]}
+
+[dev-dependencies]
+tracing-subscriber = "0.3"
+criterion = "0.4"
+
+[[bench]]
+name = "bench"
+harness = false

@@ -1,0 +1,22 @@
+[package]
+name = "llvm-bitcode"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+llvm-bitstream = { path = "../llvm-bitstream", version = "*"}
+thiserror = "1.0"
+tracing = "0.1.37"
+num_enum = "0.6.0"
+smallvec = { version = "1.10.0", features = ["union", "const_generics", "const_new"]}
+typed-arena = "2.0.2"
+
+[dev-dependencies]
+tracing-subscriber = "0.3"
+criterion = "0.4"
+
+[[bench]]
+name = "bench"
+harness = false

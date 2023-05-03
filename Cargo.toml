@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "llvm-bc-analyzer",
+    "llvm-bitcode",
+    "llvm-bitstream"
+]
