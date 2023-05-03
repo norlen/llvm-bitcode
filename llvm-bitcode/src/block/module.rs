@@ -1,7 +1,10 @@
 use llvm_bitstream::{BitstreamReader, Entry, ReaderError};
-use tracing::info;
+use tracing::{info, warn};
 
-use crate::Fields;
+use crate::{
+    bitcodes::{BlockId, ModuleCode},
+    Fields,
+};
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ModuleError {
@@ -86,11 +89,105 @@ pub fn parse_module<T: AsRef<[u8]>>(
     while let Some(entry) = bitstream.advance()? {
         match entry {
             Entry::SubBlock(block) => {
-                info!("found block");
-                bitstream.skip_block()?;
+                let Some(id) = BlockId::try_from(block.id as u8).ok() else {
+                    warn!("Unknown module block id: {}, skipping", block.id);
+                    bitstream.skip_block()?;
+                    continue;
+                };
+
+                // These are the blocks that LLVM handle when parsing the module block.
+                match id {
+                    BlockId::ParameterAttributes => {
+                        bitstream.skip_block()?;
+                        info!("ParameterAttributes block");
+                    }
+                    BlockId::ParameterAttributeGroups => {
+                        bitstream.skip_block()?;
+                        info!("ParameterAttributeGroups block");
+                    }
+                    BlockId::Constants => {
+                        bitstream.skip_block()?;
+                        info!("Constants block");
+                    }
+                    BlockId::Function => {
+                        bitstream.skip_block()?;
+                        info!("Function block");
+                    }
+                    BlockId::ValueSymtab => {
+                        bitstream.skip_block()?;
+                        info!("ValueSymtab block");
+                    }
+                    BlockId::Metadata => {
+                        bitstream.skip_block()?;
+                        info!("Metadata block");
+                    }
+                    BlockId::Types => {
+                        bitstream.skip_block()?;
+                        info!("Types block");
+                    }
+                    BlockId::Uselist => {
+                        bitstream.skip_block()?;
+                        info!("Uselist block");
+                    }
+                    BlockId::ModuleStrtab => {
+                        bitstream.skip_block()?;
+                        info!("ModuleStrtab block");
+                    }
+                    BlockId::GlobalValueSummary => {
+                        bitstream.skip_block()?;
+                        info!("GlobalValueSummary block");
+                    }
+                    BlockId::OperandBundleTags => {
+                        bitstream.skip_block()?;
+                        info!("OperandBundleTags block");
+                    }
+                    BlockId::MetadataKind => {
+                        bitstream.skip_block()?;
+                        info!("MetadataKind block");
+                    }
+                    BlockId::FullLtoGlobalValueSummary => {
+                        bitstream.skip_block()?;
+                        info!("FullLtoGlobalValueSummary block");
+                    }
+                    BlockId::SyncScopeNames => {
+                        bitstream.skip_block()?;
+                        info!("SyncScopeNames block");
+                    }
+                    _ => {
+                        warn!(
+                            "Unexpected block id: {} in module block, skipping",
+                            block.id
+                        );
+                        bitstream.skip_block()?;
+                        continue;
+                    }
+                }
             }
             Entry::Record(entry) => {
                 let code = bitstream.read_record(entry, &mut record)?;
+                let Some(code) = ModuleCode::try_from(code as u8).ok() else {
+                    warn!("Unknown module code: {code}, skipping");
+                    continue;
+                };
+                match code {
+                    ModuleCode::Version => info!("Version record"),
+                    ModuleCode::Triple => info!("Triple record"),
+                    ModuleCode::Datalayout => info!("Datalayout record"),
+                    ModuleCode::Asm => info!("Asm record"),
+                    ModuleCode::SectionName => info!("SectionName record"),
+                    ModuleCode::DepLib => info!("DepLib record"),
+                    ModuleCode::GlobalVariable => info!("GlobalVariable record"),
+                    ModuleCode::Function => info!("Function record"),
+                    ModuleCode::AliasOld => info!("AliasOld record"),
+                    ModuleCode::GcName => info!("GcName record"),
+                    ModuleCode::Comdat => info!("Comdat record"),
+                    ModuleCode::VstOffset => info!("VstOffset record"),
+                    ModuleCode::Alias => info!("Alias record"),
+                    ModuleCode::MetadataValuesUnused => info!("MetadataValuesUnused record"),
+                    ModuleCode::Filename => info!("Filename record"),
+                    ModuleCode::Hash => info!("Hash record"),
+                    ModuleCode::IFunc => info!("IFunc record"),
+                }
             }
         }
     }
