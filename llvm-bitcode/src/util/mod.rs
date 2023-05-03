@@ -10,23 +10,23 @@ pub enum RecordError {
     IncompleteRecord,
 }
 
-pub struct Fields(SmallVec<[u64; 32]>);
+pub struct Fields<const N: usize>(SmallVec<[u64; N]>);
 
-impl Deref for Fields {
-    type Target = SmallVec<[u64; 32]>;
+impl<const N: usize> Deref for Fields<N> {
+    type Target = SmallVec<[u64; N]>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for Fields {
+impl<const N: usize> DerefMut for Fields<N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl Fields {
+impl<const N: usize> Fields<N> {
     pub fn new() -> Self {
         Self(SmallVec::new())
     }
@@ -72,12 +72,12 @@ impl Fields {
 
 // ---------------------------------------------
 
-pub struct FieldsIter<'a> {
-    record: &'a Fields,
+pub struct FieldsIter<'a, const N: usize> {
+    record: &'a Fields<N>,
     index: usize,
 }
 
-impl<'a> Iterator for FieldsIter<'a> {
+impl<'a, const N: usize> Iterator for FieldsIter<'a, N> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -86,8 +86,8 @@ impl<'a> Iterator for FieldsIter<'a> {
     }
 }
 
-impl<'a> From<&'a Fields> for FieldsIter<'a> {
-    fn from(value: &'a Fields) -> Self {
+impl<'a, const N: usize> From<&'a Fields<N>> for FieldsIter<'a, N> {
+    fn from(value: &'a Fields<N>) -> Self {
         Self {
             record: value,
             index: 0,
@@ -95,7 +95,7 @@ impl<'a> From<&'a Fields> for FieldsIter<'a> {
     }
 }
 
-impl<'a> FieldsIter<'a> {
+impl<'a, const N: usize> FieldsIter<'a, N> {
     /// Require that the record contain `size` fields.
     ///
     /// # Errors

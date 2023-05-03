@@ -80,7 +80,7 @@ impl Identification {
         let mut producer: Option<String> = None;
         let mut epoch: Option<u64> = None;
 
-        let mut record = Fields::new();
+        let mut record = Fields::<32>::new();
         while let Some(entry) = bitstream.records()? {
             let code = bitstream.read_record(entry, &mut record)?;
             let code = IdentificationCode::try_from(code as u8)?;

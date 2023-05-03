@@ -86,7 +86,7 @@ mod context;
 mod record;
 mod util;
 
-use block::{Identification, IdentificationError, StringTableError, SymbolTableError};
+use block::{Identification, IdentificationError, ModuleError, StringTableError, SymbolTableError};
 use context::Context;
 use llvm_bitstream::{BitstreamReader, CursorError, Entry, ReaderError};
 use num_enum::TryFromPrimitiveError;
@@ -96,7 +96,7 @@ pub use util::{Fields, FieldsIter, RecordError};
 
 use crate::{
     bitcodes::TopLevelBlockId,
-    block::{StringTable, SymbolTable},
+    block::{parse_module, StringTable, SymbolTable},
 };
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -120,6 +120,10 @@ pub enum ParserError {
     /// Failed to parse the symbol table block.
     #[error("{0}")]
     SymbolTableError(#[from] SymbolTableError),
+
+    /// Failed to parse the module block.
+    #[error("{0}")]
+    ModuleError(#[from] ModuleError),
 
     /// Error from the underlying [`BitstreamReader`].
     #[error("{0}")]
@@ -161,7 +165,7 @@ pub fn parse_modules<T: AsRef<[u8]>>(
     //
     // Here, bitcode files can also be concatenated together, and thus we can get more than one
     // set of top-level blocks. This is currently not supported.
-    let mut module_block_location = None;
+    let mut module_block = None;
     while !bitstream.cursor().is_empty() {
         let block = match bitstream.advance()? {
             Some(entry) => match entry {
@@ -190,7 +194,8 @@ pub fn parse_modules<T: AsRef<[u8]>>(
                 ctx.set_identification(identification);
             }
             TopLevelBlockId::Module => {
-                module_block_location = Some(bitstream.cursor().bit_position());
+                info!("Found Module block, saving for later");
+                module_block = Some((block, bitstream.cursor().bit_position()));
                 bitstream.skip_block()?;
             }
             TopLevelBlockId::StringTable => {
@@ -208,14 +213,17 @@ pub fn parse_modules<T: AsRef<[u8]>>(
         }
     }
 
+    let Some((block, position)) = module_block else {
+        panic!("Could not find module block");
+    };
+
+    info!("Resuming parsing for module block");
     // Restart parsing to the module block and resume there.
-    bitstream
-        .mut_cursor()
-        .set_bit_position(module_block_location.expect("Could not find module block"));
+    bitstream.mut_cursor().set_bit_position(position);
+    bitstream.enter_block(block)?;
 
-    bitstream.skip_block()?;
-
-    // let _ = parse_module(&mut module_bitstream.unwrap(), &mut context).unwrap();
+    let module_info = parse_module(bitstream)?;
+    println!("ModuleInfo: {module_info:?}");
 
     Ok(())
 }

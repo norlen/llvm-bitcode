@@ -34,7 +34,7 @@ impl StringTable {
     ) -> Result<Self, StringTableError> {
         let mut data = None;
 
-        let mut record = Fields::new();
+        let mut record = Fields::<32>::new();
         while let Some(entry) = bitstream.records()? {
             let code = bitstream.read_record(entry, &mut record)?;
             if code == StringTableCode::Blob as u32 {
