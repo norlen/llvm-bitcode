@@ -1,6 +1,7 @@
 use num_enum::TryFromPrimitiveError;
 
 use llvm_bitstream::{BitstreamReader, ReaderError};
+use tracing::warn;
 
 use crate::{
     bitcodes::{IdentificationCode, StringTableCode},
@@ -37,9 +38,11 @@ impl StringTable {
         let mut record = Fields::<32>::new();
         while let Some(entry) = bitstream.records()? {
             let code = bitstream.read_record(entry, &mut record)?;
-            if code == StringTableCode::Blob as u32 {
-                data = record.to_blob(0);
-            }
+            let Some(StringTableCode::Blob) = StringTableCode::from_code(code) else {
+                warn!("Unknown code in StringTable: {code}, skipping");
+                continue;
+            };
+            data = record.to_blob(0);
         }
 
         let data = data.ok_or(StringTableError::InvalidStringTable)?;

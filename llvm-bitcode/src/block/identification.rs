@@ -1,6 +1,7 @@
 use num_enum::TryFromPrimitiveError;
 
 use llvm_bitstream::{BitstreamReader, ReaderError};
+use tracing::warn;
 
 use crate::{bitcodes::IdentificationCode, Fields};
 
@@ -83,7 +84,11 @@ impl Identification {
         let mut record = Fields::<32>::new();
         while let Some(entry) = bitstream.records()? {
             let code = bitstream.read_record(entry, &mut record)?;
-            let code = IdentificationCode::try_from(code as u8)?;
+            let Some(code) = IdentificationCode::from_code(code) else {
+                warn!("Unknown code: {code}, skipping");
+                continue;
+            };
+
             match code {
                 IdentificationCode::Producer => {
                     producer = Some(

@@ -107,6 +107,11 @@ impl BlockId {
             BlockId::SyncScopeNames => "SYNC_SCOPE_NAMES_BLOCK",
         }
     }
+
+    pub fn from_id(id: u32) -> Option<BlockId> {
+        let id = id.try_into().ok()?;
+        Self::try_from_primitive(id).ok()
+    }
 }
 
 /// The identification block contain a string containing producer details and an epoch that define
@@ -132,6 +137,11 @@ impl IdentificationCode {
             IdentificationCode::Producer => "STRING",
             IdentificationCode::Epoch => "EPOCH",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<IdentificationCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }
 
@@ -214,6 +224,11 @@ impl ModuleCode {
             ModuleCode::IFunc => "IFUNC",
         }
     }
+
+    pub fn from_code(code: u32) -> Option<ModuleCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -236,6 +251,11 @@ impl AttributeCode {
             AttributeCode::Entry => "ENTRY",
             AttributeCode::GroupEntry => "GROUP_ENTRY",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<AttributeCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }
 
@@ -352,6 +372,11 @@ impl TypeCode {
             TypeCode::TargetType => "TARGET_TYPE",
         }
     }
+
+    pub fn from_code(code: u32) -> Option<TypeCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -367,6 +392,11 @@ impl OperandBundleTagCode {
             OperandBundleTagCode::Tag => "OPERAND_BUNDLE_TAG",
         }
     }
+
+    pub fn from_code(code: u32) -> Option<OperandBundleTagCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -381,6 +411,11 @@ impl SyncScopeNameCode {
         match self {
             SyncScopeNameCode::Name => "SYNC_SCOPE_NAME",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<SyncScopeNameCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }
 
@@ -409,6 +444,11 @@ impl ValueSymbolTableCode {
             ValueSymbolTableCode::CombinedEntry => "COMBINED_ENTRY",
         }
     }
+
+    pub fn from_code(code: u32) -> Option<ValueSymbolTableCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -427,6 +467,11 @@ impl ModulePathSymbolTableCode {
             ModulePathSymbolTableCode::Entry => "ENTRY",
             ModulePathSymbolTableCode::Hash => "HASH",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<ModulePathSymbolTableCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }
 
@@ -568,6 +613,11 @@ impl GlobalValueSummarySymbolTableCode {
             GlobalValueSummarySymbolTableCode::CombinedAllocInof => "COMBINED_ALLOC_INFO",
             GlobalValueSummarySymbolTableCode::StackIds => "STACK_IDS",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<GlobalValueSummarySymbolTableCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }
 
@@ -760,6 +810,11 @@ impl MetadataCode {
             MetadataCode::AssignId => "ASSIGN_ID",
         }
     }
+
+    pub fn from_code(code: u32) -> Option<MetadataCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 /// `CONSTANTS_BLOCK_ID` record codes.
@@ -892,6 +947,11 @@ impl ConstantsCode {
             ConstantsCode::InlineAsm => "INLINEASM",
         }
     }
+
+    pub fn from_code(code: u32) -> Option<ConstantsCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 /// Cast operation codes.
@@ -938,12 +998,26 @@ pub enum CastOperationCode {
     AddressSpaceCast = 12,
 }
 
+impl CastOperationCode {
+    pub fn from_code(code: u32) -> Option<CastOperationCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
+}
+
 /// Unary operation codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 enum UnaryOperationCode {
     /// `UNOP_FNEG`
     FloatingPointNegation = 0,
+}
+
+impl UnaryOperationCode {
+    pub fn from_code(code: u32) -> Option<UnaryOperationCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 /// Binary operation codes.
@@ -992,6 +1066,13 @@ pub enum BinaryOperationCode {
 
     /// `BINOP_XOR`
     Xor = 12,
+}
+
+impl BinaryOperationCode {
+    pub fn from_code(code: u32) -> Option<BinaryOperationCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 /// Atomic RMW operation codes.
@@ -1050,6 +1131,13 @@ pub enum AtomicRMWOperation {
     UDecWrap = 16,
 }
 
+impl AtomicRMWOperation {
+    pub fn from_code(code: u32) -> Option<AtomicRMWOperation> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum OverflowingBinaryOperatorOptionalFlag {
@@ -1104,6 +1192,13 @@ pub enum AtomicOrderingCode {
 
     // `ORDERING_SEQCST`
     SequentiallyConsistent = 6,
+}
+
+impl AtomicOrderingCode {
+    pub fn from_code(code: u32) -> Option<AtomicOrderingCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -1353,6 +1448,11 @@ impl FunctionCode {
             FunctionCode::BlockaddrUsers => "BLOCKADDR_USERS",
         }
     }
+
+    pub fn from_code(code: u32) -> Option<FunctionCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -1371,6 +1471,11 @@ impl UseListCode {
             UseListCode::Default => "USELIST_CODE_DEFAULT",
             UseListCode::BasicBlock => "USELIST_CODE_BB",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<UseListCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }
 
@@ -1639,6 +1744,13 @@ pub enum AttributeKindCode {
     NoFpClass = 87,
 }
 
+impl AttributeKindCode {
+    pub fn from_code(code: u32) -> Option<AttributeKindCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum ComdatSelectionKindCode {
@@ -1658,6 +1770,13 @@ pub enum ComdatSelectionKindCode {
     SameSize = 5,
 }
 
+impl ComdatSelectionKindCode {
+    pub fn from_code(code: u32) -> Option<ComdatSelectionKindCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum StringTableCode {
@@ -1670,6 +1789,11 @@ impl StringTableCode {
         match self {
             StringTableCode::Blob => "BLOB",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<StringTableCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }
 
@@ -1685,6 +1809,11 @@ impl SymbolTableCode {
         match self {
             SymbolTableCode::Blob => "BLOB",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<SymbolTableCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }
 
@@ -1710,5 +1839,10 @@ impl BlockInfoCode {
             BlockInfoCode::BlockName => "BLOCKNAME",
             BlockInfoCode::SetRecordName => "SETRECORDNAME",
         }
+    }
+
+    pub fn from_code(code: u32) -> Option<BlockInfoCode> {
+        let code = code.try_into().ok()?;
+        Self::try_from_primitive(code).ok()
     }
 }

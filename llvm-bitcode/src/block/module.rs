@@ -3,14 +3,21 @@ use tracing::{error, info, warn};
 
 use crate::{
     bitcodes::{BlockId, ModuleCode},
+    block::parse_sync_scope_names_block,
     Fields, ParserError,
 };
+
+use super::SyncScopeNamesError;
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ModuleError {
     /// Did not process enough records to complete the module.
     #[error("Could not populate module")]
     InvalidModuleBlock,
+
+    /// Couldn't parse a `SyncScopeNames` block.
+    #[error("Failed to parse a SyncScopeNames record")]
+    InvalidSyncScopeNames(#[from] SyncScopeNamesError),
 
     /// Failed to parse version record.
     #[error("Failed to parse version record")]
@@ -171,7 +178,7 @@ pub fn parse_module<T: AsRef<[u8]>>(
     while let Some(entry) = bitstream.advance()? {
         match entry {
             Entry::SubBlock(block) => {
-                let Some(id) = BlockId::try_from(block.id as u8).ok() else {
+                let Some(id) = BlockId::from_id(block.id) else {
                     warn!("Unknown module block id: {}, skipping", block.id);
                     bitstream.skip_block()?;
                     continue;
@@ -232,8 +239,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         info!("FullLtoGlobalValueSummary block");
                     }
                     BlockId::SyncScopeNames => {
-                        bitstream.skip_block()?;
-                        info!("SyncScopeNames block");
+                        bitstream.enter_block(block)?;
+                        let _sync_scope_names = parse_sync_scope_names_block(bitstream)?;
                     }
                     _ => {
                         warn!(
@@ -247,10 +254,11 @@ pub fn parse_module<T: AsRef<[u8]>>(
             }
             Entry::Record(entry) => {
                 let code = bitstream.read_record(entry, &mut record)?;
-                let Some(code) = ModuleCode::try_from(code as u8).ok() else {
+                let Some(code) = ModuleCode::from_code(code) else {
                     warn!("Unknown module code: {code}, skipping");
                     continue;
                 };
+
                 match code {
                     ModuleCode::Version => {
                         let version = *record.first().ok_or(ModuleError::InvalidVersionRecord)?;

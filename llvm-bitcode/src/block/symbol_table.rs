@@ -1,6 +1,7 @@
 use num_enum::TryFromPrimitiveError;
 
 use llvm_bitstream::{BitstreamReader, ReaderError};
+use tracing::warn;
 
 use crate::{
     bitcodes::{IdentificationCode, SymbolTableCode},
@@ -33,9 +34,11 @@ impl SymbolTable {
         let mut record = Fields::<32>::new();
         while let Some(entry) = bitstream.records()? {
             let code = bitstream.read_record(entry, &mut record)?;
-            if code == SymbolTableCode::Blob as u32 {
-                data = record.to_blob(0);
-            }
+            let Some(SymbolTableCode::Blob) = SymbolTableCode::from_code(code) else {
+                warn!("Unknown code in SymbolTable: {code}, skipping");
+                continue;
+            };
+            data = record.to_blob(0);
         }
 
         let data = data.ok_or(SymbolTableError::InvalidSymbolTable)?;
