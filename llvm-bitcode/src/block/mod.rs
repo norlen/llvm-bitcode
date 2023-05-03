@@ -13,6 +13,9 @@ mod vst;
 
 pub use identification::{Identification, IdentificationError};
 pub use module::{parse_module, ModuleError, ModuleInfo};
+pub use operand_bundle_tags::{
+    parse_operand_bundle_tags_block, OperandBundleTags, OperandBundleTagsError,
+};
 pub use string_table::{StringTable, StringTableError};
 pub use symbol_table::{SymbolTable, SymbolTableError};
 pub use sync_scope_names::{parse_sync_scope_names_block, SyncScopeNames, SyncScopeNamesError};

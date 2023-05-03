@@ -7,7 +7,7 @@ use crate::{
     Fields, ParserError,
 };
 
-use super::SyncScopeNamesError;
+use super::{parse_operand_bundle_tags_block, OperandBundleTagsError, SyncScopeNamesError};
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ModuleError {
@@ -16,8 +16,12 @@ pub enum ModuleError {
     InvalidModuleBlock,
 
     /// Couldn't parse a `SyncScopeNames` block.
-    #[error("Failed to parse a SyncScopeNames record")]
+    #[error("Failed to parse a SyncScopeNames block")]
     InvalidSyncScopeNames(#[from] SyncScopeNamesError),
+
+    /// Couldn't parse an `OperandBundleTags` block.
+    #[error("Failed to parse a OperandBundleTags block")]
+    InvalidOperandBundleTags(#[from] OperandBundleTagsError),
 
     /// Failed to parse version record.
     #[error("Failed to parse version record")]
@@ -227,8 +231,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         info!("GlobalValueSummary block");
                     }
                     BlockId::OperandBundleTags => {
-                        bitstream.skip_block()?;
-                        info!("OperandBundleTags block");
+                        bitstream.enter_block(block)?;
+                        let _operand_bundle_tags = parse_operand_bundle_tags_block(bitstream)?;
                     }
                     BlockId::MetadataKind => {
                         bitstream.skip_block()?;
