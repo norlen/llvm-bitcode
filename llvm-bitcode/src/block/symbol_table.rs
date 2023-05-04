@@ -1,12 +1,7 @@
-use num_enum::TryFromPrimitiveError;
-
 use llvm_bitstream::{BitstreamReader, ReaderError};
 use tracing::warn;
 
-use crate::{
-    bitcodes::{IdentificationCode, SymbolTableCode},
-    Fields,
-};
+use crate::{bitcodes::SymbolTableCode, Fields};
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum SymbolTableError {

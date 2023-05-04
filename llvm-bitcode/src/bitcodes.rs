@@ -21,6 +21,13 @@ pub enum TopLevelBlockId {
     Symtab = 25,
 }
 
+impl TopLevelBlockId {
+    pub fn from_id(id: u32) -> Option<TopLevelBlockId> {
+        let id = id.try_into().ok()?;
+        Self::try_from_primitive(id).ok()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum BlockId {

@@ -78,7 +78,6 @@
 // END - Embark standard lints v6 for Rust 1.55+
 // crate-specific exceptions:
 // #![allow()]
-#![allow(unused)]
 
 pub mod bitcodes;
 mod block;
@@ -89,7 +88,6 @@ mod util;
 use block::{Identification, IdentificationError, ModuleError, StringTableError, SymbolTableError};
 use context::Context;
 use llvm_bitstream::{BitstreamReader, CursorError, Entry, ReaderError};
-use num_enum::TryFromPrimitiveError;
 use tracing::{info, warn};
 pub use util::fields::{Fields, FieldsIter, RecordError};
 
@@ -133,12 +131,6 @@ pub enum ParserError {
     CursorError(#[from] CursorError),
 }
 
-impl From<TryFromPrimitiveError<TopLevelBlockId>> for ParserError {
-    fn from(value: TryFromPrimitiveError<TopLevelBlockId>) -> Self {
-        ParserError::InvalidTopLevelBlockId(value.number)
-    }
-}
-
 #[allow(unused_variables, unused_assignments)]
 pub fn parse<T: AsRef<[u8]>>(bytes: T) -> Result<(), ParserError> {
     let mut bitstream = BitstreamReader::from_bytes(bytes)?;
@@ -178,7 +170,7 @@ pub fn parse_modules<T: AsRef<[u8]>>(
             None => return Err(ParserError::InvalidBitstream),
         };
 
-        let Some(block_id) = TopLevelBlockId::try_from(block.id as u8).ok() else {
+        let Some(block_id) = TopLevelBlockId::from_id(block.id) else {
             warn!("Found unknown top-level block id: {}: skipping", block.id);
             bitstream.skip_block()?;
             continue;
@@ -218,7 +210,7 @@ pub fn parse_modules<T: AsRef<[u8]>>(
 
     info!("Resuming parsing for module block");
     // Restart parsing to the module block and resume there.
-    bitstream.mut_cursor().set_bit_position(position);
+    bitstream.mut_cursor().set_bit_position(position)?;
     bitstream.enter_block(block)?;
 
     let module_info = parse_module(bitstream, &mut ctx)?;

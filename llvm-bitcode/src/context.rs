@@ -1,9 +1,4 @@
-use std::{borrow::BorrowMut, rc::Rc};
-
-use crate::{
-    block::{Identification, StringTable, SymbolTable, TypeList},
-    util::types::Type,
-};
+use crate::block::{Identification, StringTable, SymbolTable, TypeList};
 
 /// Context used while parsing the bitstream.
 ///

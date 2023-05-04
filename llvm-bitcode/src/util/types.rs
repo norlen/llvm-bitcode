@@ -57,105 +57,103 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn is_pointer(&self) -> bool {
-        match self {
-            Type::Pointer { address_space: _ } => true,
-            _ => false,
-        }
-    }
+    // pub fn is_pointer(&self) -> bool {
+    //     matches!(self, Type::Pointer { address_space: _ })
+    // }
 
-    pub fn is_sized(&self) -> bool {
-        match self {
-            // Primitive types are always sized.
-            Type::Integer(_) => true,
-            Type::FloatingPoint(_) => true,
-            Type::Pointer { address_space: _ } => true,
+    // pub fn is_sized(&self) -> bool {
+    //     match self {
+    //         // Primitive types are always sized.
+    //         Type::Integer(_) | Type::FloatingPoint(_) | Type::Pointer { address_space: _ } => true,
 
-            // Certain types cannot have a size such as functions or labels.
-            Type::Void => false,
-            Type::Function {
-                parameters,
-                return_ty,
-                is_var_arg,
-            } => false,
-            Type::Label => false,
-            Type::Metadata => false,
-            Type::Token => false,
+    //         // Certain types cannot have a size such as functions or labels.
+    //         Type::Void
+    //         | Type::Function {
+    //             parameters: _,
+    //             return_ty: _,
+    //             is_var_arg: _,
+    //         }
+    //         | Type::Label
+    //         | Type::Metadata
+    //         | Type::Token => false,
 
-            // Other types are harder to decide.
-            Type::Vector {
-                num_elements,
-                ty,
-                is_scalable,
-            } => todo!(),
-            Type::Array { num_elements, ty } => todo!(),
-            Type::Structure(_) => todo!(),
+    //         // Other types are harder to decide.
+    //         Type::Vector {
+    //             num_elements: _,
+    //             ty: _,
+    //             is_scalable: _,
+    //         } => todo!(),
+    //         Type::Array {
+    //             num_elements: _,
+    //             ty: _,
+    //         } => todo!(),
+    //         Type::Structure(_) => todo!(),
 
-            // TODO
-            Type::TargetExtension {
-                name,
-                type_parameters,
-                int_parameters,
-            } => todo!(),
-        }
-    }
+    //         // TODO
+    //         Type::TargetExtension {
+    //             name: _,
+    //             type_parameters: _,
+    //             int_parameters: _,
+    //         } => todo!(),
+    //     }
+    // }
 
     /// Returns `true` if the type is ["first class"](https://llvm.org/docs/LangRef.html#t-firstclass)
     /// , i.e., it is a valid type for a `Value`.
     ///
     /// A first class value is currently all types except for `void` and `function`.
     pub fn is_first_class(&self) -> bool {
-        match self {
+        !matches!(
+            self,
             Type::Void
-            | Type::Function {
-                parameters: _,
-                return_ty: _,
-                is_var_arg: _,
-            } => false,
-            _ => true,
-        }
+                | Type::Function {
+                    parameters: _,
+                    return_ty: _,
+                    is_var_arg: _
+                }
+        )
     }
 
     /// Returns `true` if the type can be part of an array.
     pub fn is_valid_element_type(&self) -> bool {
-        match self {
+        !matches!(
+            self,
             Type::Void
-            | Type::Label
-            | Type::Metadata
-            | Type::Function {
-                parameters: _,
-                return_ty: _,
-                is_var_arg: _,
-            }
-            | Type::FloatingPoint(FloatingPointType::X86Amx)
-            | Type::Vector {
-                num_elements: _,
-                ty: _,
-                is_scalable: true,
-            } => false,
-            _ => true,
-        }
+                | Type::Label
+                | Type::Metadata
+                | Type::Function {
+                    parameters: _,
+                    return_ty: _,
+                    is_var_arg: _,
+                }
+                | Type::FloatingPoint(FloatingPointType::X86Amx)
+                | Type::Vector {
+                    num_elements: _,
+                    ty: _,
+                    is_scalable: true,
+                }
+        )
     }
 
-    pub fn is_fp_ty(&self) -> bool {
-        matches!(self, Type::FloatingPoint(_))
-    }
+    // pub fn is_fp_ty(&self) -> bool {
+    //     matches!(self, Type::FloatingPoint(_)) // Probably not true with x86 AMX amd MMX
+    // }
 
-    pub fn is_fp_or_fp_vector_ty(&self) -> bool {
-        self.scalar_type().is_fp_ty()
-    }
+    // pub fn is_fp_or_fp_vector_ty(&self) -> bool {
+    //     self.scalar_type().is_fp_ty()
+    // }
 
-    /// For vector types return the contained type, otherwise return the type itself.
-    pub fn scalar_type(&self) -> &Type {
-        match self {
-            Type::Vector {
-                num_elements,
-                ty,
-                is_scalable,
-            } => ty,
-            _ => self,
-        }
-    }
+    // /// For vector types return the contained type, otherwise return the type itself.
+    // pub fn scalar_type(&self) -> &Type {
+    //     match self {
+    //         Type::Vector {
+    //             num_elements: _,
+    //             ty,
+    //             is_scalable: _,
+    //         } => ty,
+    //         _ => self,
+    //     }
+    // }
 }
 
 impl std::fmt::Display for Type {
@@ -269,7 +267,7 @@ impl std::fmt::Display for Type {
                 type_parameters,
                 int_parameters,
             } => {
-                write!(f, "target(\"name\"")?;
+                write!(f, "target(\"{name}\"")?;
                 if !type_parameters.is_empty() || !int_parameters.is_empty() {
                     write!(f, ", ")?;
                 }
@@ -359,19 +357,19 @@ pub enum FloatingPointType {
 }
 
 impl FloatingPointType {
-    pub fn is_ieee_like(&self) -> bool {
-        match self {
-            FloatingPointType::Half
-            | FloatingPointType::BFloat
-            | FloatingPointType::Float
-            | FloatingPointType::Double
-            | FloatingPointType::Fp128 => true,
-            FloatingPointType::X86Fp80
-            | FloatingPointType::PpcFp128
-            | FloatingPointType::X86Amx
-            | FloatingPointType::X86Mmx => false,
-        }
-    }
+    // pub fn is_ieee_like(&self) -> bool {
+    //     match self {
+    //         FloatingPointType::Half
+    //         | FloatingPointType::BFloat
+    //         | FloatingPointType::Float
+    //         | FloatingPointType::Double
+    //         | FloatingPointType::Fp128 => true,
+    //         FloatingPointType::X86Fp80
+    //         | FloatingPointType::PpcFp128
+    //         | FloatingPointType::X86Amx
+    //         | FloatingPointType::X86Mmx => false,
+    //     }
+    // }
 }
 
 /// Structure type ([LLVM](https://llvm.org/docs/LangRef.html#structure-type)).
@@ -388,12 +386,12 @@ pub enum Structure {
 }
 
 impl Structure {
-    pub fn fields(&self) -> Option<&[Rc<Type>]> {
-        match self {
-            Structure::Literal(s) | Structure::Identified(_, s) => Some(s.fields.as_ref()),
-            Structure::Opaque(_) => None,
-        }
-    }
+    // pub fn fields(&self) -> Option<&[Rc<Type>]> {
+    //     match self {
+    //         Structure::Literal(s) | Structure::Identified(_, s) => Some(s.fields.as_ref()),
+    //         Structure::Opaque(_) => None,
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

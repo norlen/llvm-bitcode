@@ -1,11 +1,7 @@
 use llvm_bitstream::{BitstreamReader, ReaderError};
-use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 use tracing::{error, info, warn};
 
-use crate::{
-    bitcodes::{OperandBundleTagCode, SyncScopeNameCode},
-    Fields,
-};
+use crate::{bitcodes::OperandBundleTagCode, Fields};
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum OperandBundleTagsError {

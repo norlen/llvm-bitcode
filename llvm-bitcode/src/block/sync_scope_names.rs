@@ -1,5 +1,4 @@
 use llvm_bitstream::{BitstreamReader, ReaderError};
-use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 use tracing::{error, info, warn};
 
 use crate::{bitcodes::SyncScopeNameCode, Fields};

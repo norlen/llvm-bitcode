@@ -1,12 +1,11 @@
-use std::{borrow::Borrow, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use llvm_bitstream::{BitstreamReader, Entry, ReaderError};
-use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
 use smallvec::SmallVec;
 use tracing::{error, info, warn};
 
 use crate::{
-    bitcodes::{SyncScopeNameCode, TypeCode},
+    bitcodes::TypeCode,
     util::types::{FloatingPointType, IntegerType, Structure, StructureType, Type},
     Fields,
 };
@@ -143,8 +142,6 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
 
     // Get the number of entries (types) in the type block.
     let num_entries = {
-        const NUM_ENTRIES_CODE: u64 = 1;
-
         let Some(Entry::Record(entry)) = bitstream.advance()? else {
             return Err(TypesError::InvalidNumEntries)?;
         };
@@ -200,7 +197,7 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
             TypeCode::Fp128 => Type::FloatingPoint(FloatingPointType::Fp128),
             TypeCode::X86Fp80 => Type::FloatingPoint(FloatingPointType::X86Fp80),
             TypeCode::PpcFp128 => Type::FloatingPoint(FloatingPointType::PpcFp128),
-            TypeCode::X86Mmx => Type::FloatingPoint(FloatingPointType::X86Fp80),
+            TypeCode::X86Mmx => Type::FloatingPoint(FloatingPointType::X86Mmx),
             TypeCode::X86Amx => Type::FloatingPoint(FloatingPointType::X86Amx),
             TypeCode::Label => Type::Label,
             TypeCode::Token => Type::Token,
@@ -247,7 +244,7 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                     .get(record[1])
                     .cloned()
                     .ok_or(TypesError::InvalidVectorRecord)?;
-                let is_scalable = record.get(2).map(|v| *v > 0).unwrap_or(false);
+                let is_scalable = record.get(2).map_or(false, |v| *v > 0);
 
                 Type::Vector {
                     num_elements,

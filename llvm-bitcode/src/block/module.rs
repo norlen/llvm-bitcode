@@ -5,7 +5,7 @@ use crate::{
     bitcodes::{BlockId, ModuleCode},
     block::{parse_sync_scope_names_block, parse_type_block},
     context::Context,
-    Fields, ParserError,
+    Fields,
 };
 
 use super::{
