@@ -3,17 +3,24 @@ use tracing::{error, info, warn};
 
 use crate::{
     bitcodes::{BlockId, ModuleCode},
-    block::parse_sync_scope_names_block,
+    block::{parse_sync_scope_names_block, parse_type_block},
+    context::Context,
     Fields, ParserError,
 };
 
-use super::{parse_operand_bundle_tags_block, OperandBundleTagsError, SyncScopeNamesError};
+use super::{
+    parse_operand_bundle_tags_block, OperandBundleTagsError, SyncScopeNamesError, TypesError,
+};
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ModuleError {
     /// Did not process enough records to complete the module.
     #[error("Could not populate module")]
     InvalidModuleBlock,
+
+    /// Couldn't parse a `Types` block.
+    #[error("Failed to parse a Types block")]
+    InvalidTypes(#[from] TypesError),
 
     /// Couldn't parse a `SyncScopeNames` block.
     #[error("Failed to parse a SyncScopeNames block")]
@@ -175,6 +182,7 @@ impl ModuleInfoBuilder {
 
 pub fn parse_module<T: AsRef<[u8]>>(
     bitstream: &mut BitstreamReader<T>,
+    ctx: &mut Context,
 ) -> Result<ModuleInfo, ModuleError> {
     let mut module_info = ModuleInfoBuilder::default();
 
@@ -215,8 +223,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         info!("Metadata block");
                     }
                     BlockId::Types => {
-                        bitstream.skip_block()?;
-                        info!("Types block");
+                        bitstream.enter_block(block)?;
+                        ctx.type_list = parse_type_block(bitstream)?;
                     }
                     BlockId::Uselist => {
                         bitstream.skip_block()?;

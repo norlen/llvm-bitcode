@@ -91,7 +91,6 @@ use context::Context;
 use llvm_bitstream::{BitstreamReader, CursorError, Entry, ReaderError};
 use num_enum::TryFromPrimitiveError;
 use tracing::{info, warn};
-use typed_arena::Arena;
 pub use util::fields::{Fields, FieldsIter, RecordError};
 
 use crate::{
@@ -222,7 +221,7 @@ pub fn parse_modules<T: AsRef<[u8]>>(
     bitstream.mut_cursor().set_bit_position(position);
     bitstream.enter_block(block)?;
 
-    let module_info = parse_module(bitstream)?;
+    let module_info = parse_module(bitstream, &mut ctx)?;
     println!("ModuleInfo: {module_info:#?}");
 
     Ok(())

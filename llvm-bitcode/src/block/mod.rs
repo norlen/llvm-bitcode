@@ -19,3 +19,4 @@ pub use operand_bundle_tags::{
 pub use string_table::{StringTable, StringTableError};
 pub use symbol_table::{SymbolTable, SymbolTableError};
 pub use sync_scope_names::{parse_sync_scope_names_block, SyncScopeNames, SyncScopeNamesError};
+pub use types::{parse_type_block, TypeList, TypesError};

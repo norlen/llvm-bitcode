@@ -19,7 +19,7 @@ pub enum SymbolTableError {
     ReaderError(#[from] ReaderError),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SymbolTable(Vec<u8>);
 
 impl SymbolTable {

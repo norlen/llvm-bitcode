@@ -23,7 +23,7 @@ pub enum StringTableError {
 ///
 /// Essentially an LLVM `STRTAB` block, where a string can be retrieved by providing an offset
 /// into the table and the size.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct StringTable(Vec<u8>);
 
 impl StringTable {

@@ -32,6 +32,28 @@ impl<const N: usize> Fields<N> {
         Self(SmallVec::new())
     }
 
+    /// Returns a reference to an element as an `u32`.
+    ///
+    /// - Returns a reference to the element at the index or `None` if out of bounds.
+    /// - Returns the value as `u32` instead of `u64` or `None` if the value cannot be converted
+    ///   to a `u32`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::Fields;
+    ///
+    /// let mut v = Fields::<32>::new();
+    /// v.push(1);
+    /// assert_eq!(Some(&1), v.get(0));
+    /// assert_eq!(None, v.get(1));
+    /// ```
+    pub fn get_u32(&self, index: usize) -> Option<u32> {
+        self.get(index)
+            .copied()
+            .and_then(|value| value.try_into().ok())
+    }
+
     pub fn to_string(&self, index: usize) -> Option<String> {
         if index >= self.len() {
             return None;

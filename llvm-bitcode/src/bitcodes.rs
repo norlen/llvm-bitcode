@@ -5,7 +5,7 @@
 use num_enum::TryFromPrimitive;
 
 /// Subset of block ids from [`BlockId`] that only contain top-level blocks.
-#[derive(Debug, Clone, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum TopLevelBlockId {
     /// `MODULE_BLOCK_ID`
@@ -259,10 +259,10 @@ impl AttributeCode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, TryFromPrimitive)]
 #[repr(u8)]
 pub enum TypeCode {
-    /// `TYPE_CODE_NUMENTRY`: `[numentries#]`.
+    /// `TYPE_CODE_NUMENTRY`: `[num_entries#]`.
     NumEntries = 1,
 
     /// `TYPE_CODE_VOID`.
@@ -292,10 +292,10 @@ pub enum TypeCode {
     /// `TYPE_CODE_HALF`.
     Half = 10,
 
-    /// `TYPE_CODE_ARRAY`: `[numelts, eltty]`.
+    /// `TYPE_CODE_ARRAY`: `[num_elements, element_ty]`.
     Array = 11,
 
-    /// `TYPE_CODE_VECTOR`: `[numelts, eltty]`.
+    /// `TYPE_CODE_VECTOR`: `[num_elements, element_ty[, is_scalable]]`.
     Vector = 12,
 
     /// `TYPE_CODE_X86_FP80`: `X86 LONG DOUBLE`.
@@ -313,16 +313,16 @@ pub enum TypeCode {
     /// `TYPE_CODE_X86_MMX`.
     X86Mmx = 17,
 
-    /// `TYPE_CODE_STRUCT_ANON`: [ispacked, eltty x N].
+    /// `TYPE_CODE_STRUCT_ANON`: [is_packed, element_ty x N].
     StructAnon = 18,
 
-    /// `TYPE_CODE_STRUCT_NAME`: [strchar x N].
+    /// `TYPE_CODE_STRUCT_NAME`: [ch x N].
     StructName = 19,
 
-    /// `TYPE_CODE_STRUCT_NAMED`: [ispacked, eltty x N].
+    /// `TYPE_CODE_STRUCT_NAMED`: [is_packed, element_ty x N].
     StructNamed = 20,
 
-    /// `TYPE_CODE_FUNCTION`: [vararg, retty, paramty x N].
+    /// `TYPE_CODE_FUNCTION`: [is_var_arg, return_ty, parameter_ty x N].
     Function = 21,
 
     /// `TYPE_CODE_TOKEN`.
@@ -334,11 +334,45 @@ pub enum TypeCode {
     /// `TYPE_CODE_X86_AMX`.
     X86Amx = 24,
 
-    /// `TYPE_CODE_OPAQUE_POINTER`: [addrspace].
+    /// `TYPE_CODE_OPAQUE_POINTER`: [address_space#].
     OpaquePointer = 25,
 
-    /// `TYPE_CODE_TARGET_TYPE`.
+    /// `TYPE_CODE_TARGET_TYPE`: `[num_types, types..., ints...]`.
     TargetType = 26,
+}
+
+impl std::fmt::Display for TypeCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Prefer LLVM names for now since these are most likely to be known.
+        match self {
+            TypeCode::NumEntries => write!(f, "TYPE_CODE_NUMENTRY"),
+            TypeCode::Void => write!(f, "TYPE_CODE_VOID"),
+            TypeCode::Float => write!(f, "TYPE_CODE_FLOAT"),
+            TypeCode::Double => write!(f, "TYPE_CODE_DOUBLE"),
+            TypeCode::Label => write!(f, "TYPE_CODE_LABEL"),
+            TypeCode::Opaque => write!(f, "TYPE_CODE_OPAQUE"),
+            TypeCode::Integer => write!(f, "TYPE_CODE_INTEGER"),
+            TypeCode::Pointer => write!(f, "TYPE_CODE_POINTER"),
+            TypeCode::FunctionOld => write!(f, "TYPE_CODE_FUNCTION_OLD"),
+            TypeCode::Half => write!(f, "TYPE_CODE_HALF"),
+            TypeCode::Array => write!(f, "TYPE_CODE_ARRAY"),
+            TypeCode::Vector => write!(f, "TYPE_CODE_VECTOR"),
+            TypeCode::X86Fp80 => write!(f, "TYPE_CODE_X86_FP80"),
+            TypeCode::Fp128 => write!(f, "TYPE_CODE_FP128"),
+            TypeCode::PpcFp128 => write!(f, "TYPE_CODE_PPC_FP128"),
+            TypeCode::Metadata => write!(f, "TYPE_CODE_METADATA"),
+            TypeCode::X86Mmx => write!(f, "TYPE_CODE_X86_MMX"),
+            TypeCode::StructAnon => write!(f, "TYPE_CODE_STRUCT_ANON"),
+            TypeCode::StructName => write!(f, "TYPE_CODE_STRUCT_NAME"),
+            TypeCode::StructNamed => write!(f, "TYPE_CODE_STRUCT_NAMED"),
+            TypeCode::Function => write!(f, "TYPE_CODE_FUNCTION"),
+            TypeCode::Token => write!(f, "TYPE_CODE_TOKEN"),
+            TypeCode::BFloat => write!(f, "TYPE_CODE_BFLOAT"),
+            TypeCode::X86Amx => write!(f, "TYPE_CODE_X86_AMX"),
+            TypeCode::OpaquePointer => write!(f, "TYPE_CODE_OPAQUE_POINTER"),
+            TypeCode::TargetType => write!(f, "TYPE_CODE_TARGET_TYPE"),
+        }
+    }
 }
 
 impl TypeCode {

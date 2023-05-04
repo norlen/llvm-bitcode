@@ -17,7 +17,6 @@ tracing = "0.1.37"
 num_enum = "0.6.0"
 num-bigint = "0.4"
 smallvec = { version = "1.10.0", features = ["union", "const_generics", "const_new"]}
-typed-arena = "2.0.2"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
