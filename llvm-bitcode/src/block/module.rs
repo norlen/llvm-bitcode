@@ -3,13 +3,14 @@ use tracing::{error, info, warn};
 
 use crate::{
     bitcodes::{BlockId, ModuleCode},
-    block::{parse_sync_scope_names_block, parse_type_block},
+    block::{parse_attribute_groups_block, parse_sync_scope_names_block, parse_type_block},
     context::Context,
     Fields,
 };
 
 use super::{
-    parse_operand_bundle_tags_block, OperandBundleTagsError, SyncScopeNamesError, TypesError,
+    parse_operand_bundle_tags_block, AttributeGroupError, OperandBundleTagsError,
+    SyncScopeNamesError, TypesError,
 };
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -21,6 +22,10 @@ pub enum ModuleError {
     /// Couldn't parse a `Types` block.
     #[error("Failed to parse a Types block")]
     InvalidTypes(#[from] TypesError),
+
+    /// Couldn't parse a `AttributeGroups` block.
+    #[error("Failed to parse a AttributeGroups block")]
+    InvalidAttributeGroups(#[from] AttributeGroupError),
 
     /// Couldn't parse a `SyncScopeNames` block.
     #[error("Failed to parse a SyncScopeNames block")]
@@ -203,8 +208,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         info!("ParameterAttributes block");
                     }
                     BlockId::ParameterAttributeGroups => {
-                        bitstream.skip_block()?;
-                        info!("ParameterAttributeGroups block");
+                        bitstream.enter_block(block)?;
+                        let _attribute = parse_attribute_groups_block(bitstream, ctx)?;
                     }
                     BlockId::Constants => {
                         bitstream.skip_block()?;

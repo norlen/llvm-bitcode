@@ -386,12 +386,12 @@ pub enum Structure {
 }
 
 impl Structure {
-    // pub fn fields(&self) -> Option<&[Rc<Type>]> {
-    //     match self {
-    //         Structure::Literal(s) | Structure::Identified(_, s) => Some(s.fields.as_ref()),
-    //         Structure::Opaque(_) => None,
-    //     }
-    // }
+    pub fn fields(&self) -> Option<&[Rc<Type>]> {
+        match self {
+            Structure::Literal(s) | Structure::Identified(_, s) => Some(s.fields.as_ref()),
+            Structure::Opaque(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

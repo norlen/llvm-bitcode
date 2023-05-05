@@ -97,6 +97,7 @@ pub struct TypeList {
 }
 
 impl TypeList {
+    /// Create a new `TypeList` of a given `capacity`.
     fn with_capacity(capacity: usize) -> Self {
         Self {
             types: Vec::with_capacity(capacity),
@@ -104,15 +105,18 @@ impl TypeList {
         }
     }
 
+    /// Get a type by id, returns `None` if the type id does not exist.
     pub fn get(&self, tid: u64) -> Option<&Rc<Type>> {
         self.types.get(tid as usize)
     }
 
+    /// Add a [`Type`] to the `TypeList`.
     pub fn add(&mut self, ty: Type) {
         info!("Add type: {ty}");
         self.types.push(Rc::new(ty));
     }
 
+    /// Add a [`Type`] to the `TypeList` with contained type ids.
     pub fn add_with_contained_ids(&mut self, ty: Type, contained_ids: SmallVec<[u32; 16]>) {
         info!("Add type: {ty} with contained ids: {contained_ids:?}");
         let index = self.types.len();

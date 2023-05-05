@@ -1713,7 +1713,7 @@ pub enum AttributeKindCode {
     NoSync = 63,
 
     /// `ATTR_KIND_SANITIZE_MEMTAG`.
-    SanitizeMemtag = 64,
+    SanitizeMemTag = 64,
 
     /// `ATTR_KIND_PREALLOCATED`.
     Preallocated = 65,
@@ -1758,7 +1758,7 @@ pub enum AttributeKindCode {
     DisableSanitizerInstrumentation = 78,
 
     /// `ATTR_KIND_NO_SANITIZE_BOUNDS`.
-    NoSantitizeBounds = 79,
+    NoSanitizeBounds = 79,
 
     /// `ATTR_KIND_ALLOC_ALIGN`.
     AllocAlign = 80,

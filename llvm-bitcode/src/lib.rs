@@ -82,6 +82,7 @@
 pub mod bitcodes;
 mod block;
 mod context;
+pub mod ir;
 mod record;
 mod util;
 
