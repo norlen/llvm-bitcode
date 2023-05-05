@@ -1,3 +1,4 @@
+mod attribute;
 mod attribute_group;
 mod constants;
 mod function;
@@ -11,6 +12,7 @@ mod sync_scope_names;
 mod types;
 mod vst;
 
+pub use attribute::{parse_attribute_block, AttributeError};
 pub use attribute_group::{parse_attribute_groups_block, AttributeGroupError};
 pub use identification::{Identification, IdentificationError};
 pub use module::{parse_module, ModuleError, ModuleInfo};

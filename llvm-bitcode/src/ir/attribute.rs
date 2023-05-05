@@ -33,8 +33,12 @@ impl std::fmt::Display for AttributeGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // attributes #0 = { noinline nounwind nonlazybind "probe-stack"="__rust_probestack" "target-cpu"="x86-64" }
         write!(f, "attributes #{} {{", self.group_id)?;
-        for attr in self.attributes.iter() {
-            write!(f, " {attr}")?;
+        for (i, attr) in self.attributes.iter().enumerate() {
+            if i + 1 == self.attributes.len() {
+                write!(f, " {attr} ")?;
+            } else {
+                write!(f, " {attr}")?;
+            }
         }
         write!(f, "}}")
     }

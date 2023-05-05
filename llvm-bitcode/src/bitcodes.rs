@@ -241,13 +241,20 @@ impl ModuleCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
 pub enum AttributeCode {
-    /// `PARAMATTR_CODE_ENTRY_OLD`
+    /// `PARAMATTR_CODE_ENTRY_OLD`.
+    ///
+    /// `[[paramidx0, attr0]+]` Deprecated.
+    /// Emitted by LLVM 3.2 and earlier. Don't bother supporting it at this point.
     EntryOld = 1,
 
-    /// `PARAMATTR_CODE_ENTRY`
+    /// `PARAMATTR_CODE_ENTRY`.
+    ///
+    /// `[[attribute_group_id#]+]`.
     Entry = 2,
 
-    /// `PARAMATTR_GRP_CODE_ENTRY`
+    /// `PARAMATTR_GRP_CODE_ENTRY`.
+    ///
+    /// `[group_id, index, [$attribute]+]`.
     GroupEntry = 3,
 }
 

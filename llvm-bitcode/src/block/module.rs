@@ -9,8 +9,8 @@ use crate::{
 };
 
 use super::{
-    parse_operand_bundle_tags_block, AttributeGroupError, OperandBundleTagsError,
-    SyncScopeNamesError, TypesError,
+    parse_attribute_block, parse_operand_bundle_tags_block, AttributeError, AttributeGroupError,
+    OperandBundleTagsError, SyncScopeNamesError, TypesError,
 };
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -26,6 +26,10 @@ pub enum ModuleError {
     /// Couldn't parse a `AttributeGroups` block.
     #[error("Failed to parse a AttributeGroups block")]
     InvalidAttributeGroups(#[from] AttributeGroupError),
+
+    /// Couldn't parse a `Attribute` block.
+    #[error("Failed to parse a Attribute block")]
+    InvalidAttributeError(#[from] AttributeError),
 
     /// Couldn't parse a `SyncScopeNames` block.
     #[error("Failed to parse a SyncScopeNames block")]
@@ -204,12 +208,13 @@ pub fn parse_module<T: AsRef<[u8]>>(
                 // These are the blocks that LLVM handle when parsing the module block.
                 match id {
                     BlockId::ParameterAttributes => {
-                        bitstream.skip_block()?;
-                        info!("ParameterAttributes block");
+                        bitstream.enter_block(block)?;
+                        let _attribute = parse_attribute_block(bitstream, ctx)?;
                     }
                     BlockId::ParameterAttributeGroups => {
                         bitstream.enter_block(block)?;
-                        let _attribute = parse_attribute_groups_block(bitstream, ctx)?;
+                        let attribute_groups = parse_attribute_groups_block(bitstream, ctx)?;
+                        ctx.set_attribute_groups(attribute_groups);
                     }
                     BlockId::Constants => {
                         bitstream.skip_block()?;
