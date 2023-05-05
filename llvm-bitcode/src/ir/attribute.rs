@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use bitflags::bitflags;
 use std::rc::Rc;
 
 use crate::util::types::Type;
@@ -52,6 +53,207 @@ pub enum UnwindTableKind {
 
     /// Default.
     Default = 3,
+}
+
+bitflags! {
+    /// Flags that indicate if a memory access modifies or references memory.
+    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
+    pub struct MemoryEffectsFlags: u8 {
+        /// Access does not modify or reference the value stored in memory.
+        const NoModifyOrReference = 0b00000000;
+
+        /// Access may reference the value stored in memory.
+        const Reference = 0b00000001;
+
+        /// Access may modify the value stored in memory.
+        const Modify = 0b00000010;
+
+        /// Access may reference and may modify the value stored in memory.
+        const ModifyReference = Self::Reference.bits() | Self::Modify.bits();
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum Location {
+    ArgMem = 0,
+
+    InaccessibleMem = 1,
+
+    Other = 2,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
+pub struct MemoryEffects {
+    data: u8,
+}
+
+impl MemoryEffects {
+    const BITS_PER_LOCATION: u8 = 2;
+    const LOCATION_MASK: u8 = (1 << Self::BITS_PER_LOCATION) - 1;
+
+    /// New `MemoryEffects` with `flags` set on all locations.
+    pub fn with_flags(flags: MemoryEffectsFlags) -> Self {
+        let mut s = MemoryEffects { data: 0 };
+        s.set(Location::ArgMem, flags);
+        s.set(Location::InaccessibleMem, flags);
+        s.set(Location::Other, flags);
+        s
+    }
+
+    /// New `MemoryEffects` that can both read and write any memory.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::{MemoryEffects, MemoryEffectsFlags, Location};
+    /// let mem = MemoryEffects::unknown();
+    /// assert_eq!(mem.get(Location::ArgMem), MemoryEffectsFlags::ModifyReference);
+    /// assert_eq!(mem.get(Location::InaccessibleMem), MemoryEffectsFlags::ModifyReference);
+    /// assert_eq!(mem.get(Location::Other), MemoryEffectsFlags::ModifyReference);
+    /// ```
+    pub fn unknown() -> Self {
+        Self::with_flags(MemoryEffectsFlags::ModifyReference)
+    }
+
+    /// New `MemoryEffects` that cannot read or write any memory.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::{MemoryEffects, MemoryEffectsFlags, Location};
+    /// let mem = MemoryEffects::none();
+    /// assert_eq!(mem.get(Location::ArgMem), MemoryEffectsFlags::NoModifyOrReference);
+    /// assert_eq!(mem.get(Location::InaccessibleMem), MemoryEffectsFlags::NoModifyOrReference);
+    /// assert_eq!(mem.get(Location::Other), MemoryEffectsFlags::NoModifyOrReference);
+    /// ```
+    pub fn none() -> Self {
+        Self::with_flags(MemoryEffectsFlags::NoModifyOrReference)
+    }
+
+    /// New `MemoryEffects` that can only read any memory.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::{MemoryEffects, MemoryEffectsFlags, Location};
+    /// let mem = MemoryEffects::read_only();
+    /// assert_eq!(mem.get(Location::ArgMem), MemoryEffectsFlags::Reference);
+    /// assert_eq!(mem.get(Location::InaccessibleMem), MemoryEffectsFlags::Reference);
+    /// assert_eq!(mem.get(Location::Other), MemoryEffectsFlags::Reference);
+    /// ```
+    pub fn read_only() -> Self {
+        Self::with_flags(MemoryEffectsFlags::Reference)
+    }
+
+    /// New `MemoryEffects` that can only write any memory.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::{MemoryEffects, MemoryEffectsFlags, Location};
+    /// let mem = MemoryEffects::write_only();
+    /// assert_eq!(mem.get(Location::ArgMem), MemoryEffectsFlags::Modify);
+    /// assert_eq!(mem.get(Location::InaccessibleMem), MemoryEffectsFlags::Modify);
+    /// assert_eq!(mem.get(Location::Other), MemoryEffectsFlags::Modify);
+    /// ```
+    pub fn write_only() -> Self {
+        Self::with_flags(MemoryEffectsFlags::Modify)
+    }
+
+    /// New `MemoryEffects` that can only access [`Location::ArgMem`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::{MemoryEffects, MemoryEffectsFlags, Location};
+    /// let mem = MemoryEffects::arg_mem_only();
+    /// assert_eq!(mem.get(Location::ArgMem), MemoryEffectsFlags::ModifyReference);
+    /// ```
+    pub fn arg_mem_only() -> Self {
+        Self::with_flags(MemoryEffectsFlags::ModifyReference)
+    }
+
+    /// New `MemoryEffects` that can only access [`Location::InaccessibleMem`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::{MemoryEffects, MemoryEffectsFlags, Location};
+    /// let mem = MemoryEffects::inacessible_mem_only();
+    /// assert_eq!(mem.get(Location::InaccessibleMem), MemoryEffectsFlags::ModifyReference);
+    /// ```
+    pub fn inacessible_mem_only() -> Self {
+        Self::with_flags(MemoryEffectsFlags::ModifyReference)
+    }
+
+    /// New `MemoryEffects` that can only access [`Location::ArgMem`] or [`Location::InaccessibleMem`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::{MemoryEffects, MemoryEffectsFlags, Location};
+    /// let mem = MemoryEffects::arg_or_inaccessible_mem_only();
+    /// assert_eq!(mem.get(Location::ArgMem), MemoryEffectsFlags::ModifyReference);
+    /// ```
+    pub fn arg_or_inaccessible_mem_only() -> Self {
+        Self::with_flags(MemoryEffectsFlags::ModifyReference)
+    }
+
+    /// Union with another `MemoryEffects` returning the result.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::MemoryEffects;
+    /// let mem = MemoryEffects::none();
+    /// let mem = mem.union(MemoryEffects::unknown());
+    /// assert_eq!(mem, MemoryEffects::unknown());
+    /// ```
+    pub fn union(&self, other: MemoryEffects) -> Self {
+        MemoryEffects {
+            data: self.data | other.data,
+        }
+    }
+
+    /// Intersect with another `MemoryEffects` returning the result.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use llvm_bitcode::ir::MemoryEffects;
+    /// let mem = MemoryEffects::none();
+    /// let mem = mem.intersect(MemoryEffects::unknown());
+    /// assert_eq!(mem, MemoryEffects::none());
+    /// ```
+    pub fn intersect(&self, other: MemoryEffects) -> Self {
+        MemoryEffects {
+            data: self.data & other.data,
+        }
+    }
+
+    /// Get [`MemoryEffectsFlags`] for a [`Location`].
+    pub fn get(&self, location: Location) -> MemoryEffectsFlags {
+        let d = self.data >> Self::location_shift(location) & Self::LOCATION_MASK;
+
+        // Unwrap safety:
+        // `LOCATION_MASK` is 3 is bits, matching all possible combinations in `MemoryEffectsFlags`.
+        MemoryEffectsFlags::from_bits(d).unwrap()
+    }
+
+    /// Return the underlying data.
+    pub fn data(&self) -> u8 {
+        self.data
+    }
+
+    fn set(&mut self, location: Location, flags: MemoryEffectsFlags) {
+        self.data &= !(Self::LOCATION_MASK << Self::location_shift(location));
+        self.data |= flags.bits() << Self::location_shift(location);
+    }
+
+    fn location_shift(location: Location) -> u8 {
+        location as u8 * Self::BITS_PER_LOCATION
+    }
 }
 
 ///

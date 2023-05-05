@@ -1,4 +1,3 @@
-use bitflags::bitflags;
 use llvm_bitstream::{BitstreamReader, ReaderError};
 use num_enum::TryFromPrimitive;
 use smallvec::SmallVec;
@@ -7,7 +6,10 @@ use tracing::{info, warn};
 use crate::{
     bitcodes::{AttributeCode, AttributeKindCode},
     context::Context,
-    ir::{Attribute, AttributeGroup, EnumAttribute, IntAttribute, TypeAttribute, UnwindTableKind},
+    ir::{
+        Attribute, AttributeGroup, EnumAttribute, IntAttribute, MemoryEffects, TypeAttribute,
+        UnwindTableKind,
+    },
 };
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -107,112 +109,6 @@ impl From<u64> for AttributeGroupType {
             0xFFFFFFFF => AttributeGroupType::Function,
             n => AttributeGroupType::Parameter(n - 1),
         }
-    }
-}
-
-bitflags! {
-    /// Flags that indicate if a memory access modifies or references memory.
-    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-    pub struct MemoryEffectsFlags: u8 {
-        /// Access does not modify or reference the value stored in memory.
-        const NoModifyOrReference = 0b00000000;
-
-        /// Access may reference the value stored in memory.
-        const Reference = 0b00000001;
-
-        /// Access may modify the value stored in memory.
-        const Modify = 0b00000010;
-
-        /// Access may reference and may modify the value stored in memory.
-        const ModifyReference = Self::Reference.bits() | Self::Modify.bits();
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-#[repr(u8)]
-pub enum Location {
-    ArgMem = 0,
-
-    InaccessibleMem = 1,
-
-    Other = 2,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-pub struct MemoryEffects {
-    data: u8,
-}
-
-impl MemoryEffects {
-    const BITS_PER_LOCATION: u8 = 2;
-    const LOCATION_MASK: u8 = (1 << Self::BITS_PER_LOCATION) - 1;
-
-    /// New `MemoryEffects` with `flags` set on all locations.
-    pub fn with_flags(flags: MemoryEffectsFlags) -> Self {
-        let mut s = MemoryEffects { data: 0 };
-        s.set(Location::ArgMem, flags);
-        s.set(Location::InaccessibleMem, flags);
-        s.set(Location::Other, flags);
-        s
-    }
-
-    /// New `MemoryEffects` that can both read and write any memory.
-    ///
-    pub fn unknown() -> Self {
-        Self::with_flags(MemoryEffectsFlags::ModifyReference)
-    }
-
-    /// New `MemoryEffects` that cannot read or write any memory.
-    pub fn none() -> Self {
-        Self::with_flags(MemoryEffectsFlags::NoModifyOrReference)
-    }
-
-    /// New `MemoryEffects` that can only read any memory.
-    pub fn read_only() -> Self {
-        Self::with_flags(MemoryEffectsFlags::Reference)
-    }
-
-    /// New `MemoryEffects` that can only write any memory.
-    pub fn write_only() -> Self {
-        Self::with_flags(MemoryEffectsFlags::Modify)
-    }
-
-    /// New `MemoryEffects` that can only access [`Location::ArgMem`].
-    pub fn arg_mem_only() -> Self {
-        Self::with_flags(MemoryEffectsFlags::NoModifyOrReference)
-    }
-
-    /// New `MemoryEffects` that can only access [`Location::InaccessibleMem`].
-    pub fn inacessible_mem_only() -> Self {
-        Self::with_flags(MemoryEffectsFlags::NoModifyOrReference)
-    }
-
-    /// New `MemoryEffects` that can only access [`Location::ArgMem`] or [`Location::InaccessibleMem`].
-    pub fn arg_or_inaccessible_mem_only() -> Self {
-        Self::with_flags(MemoryEffectsFlags::NoModifyOrReference)
-    }
-
-    /// Union with another `MemoryEffects` returning the result.
-    pub fn union(&self, other: MemoryEffects) -> Self {
-        MemoryEffects {
-            data: self.data | other.data,
-        }
-    }
-
-    /// Intersect with another `MemoryEffects` returning the result.
-    pub fn intersect(&self, other: MemoryEffects) -> Self {
-        MemoryEffects {
-            data: self.data & other.data,
-        }
-    }
-
-    fn set(&mut self, location: Location, flags: MemoryEffectsFlags) {
-        self.data &= !(Self::LOCATION_MASK << Self::location_shift(location));
-        self.data |= flags.bits() << Self::location_shift(location);
-    }
-
-    fn location_shift(location: Location) -> u8 {
-        location as u8 * Self::BITS_PER_LOCATION
     }
 }
 
@@ -352,7 +248,7 @@ pub fn parse_attribute_groups_block<T: AsRef<[u8]>>(
         if memory_effects != MemoryEffects::unknown() {
             attribute_group.attributes.push(Attribute::Integer(
                 IntAttribute::Memory,
-                memory_effects.data as u64,
+                memory_effects.data() as u64,
             ));
         }
 
