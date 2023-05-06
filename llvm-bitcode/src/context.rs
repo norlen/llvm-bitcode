@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     block::{Identification, StringTable, SymbolTable, TypeList},
-    ir::AttributeGroup,
+    ir::{AttributeGroup, AttributeList, Comdat},
 };
 
 /// Context used while parsing the bitstream.
@@ -21,6 +21,14 @@ pub struct Context {
     // Store attribute groups, keyed by their group id.
     attribute_groups: HashMap<u64, Rc<AttributeGroup>>,
 
+    pub attributes: Vec<Rc<AttributeList>>,
+
+    pub section_table: Vec<String>,
+
+    pub gc_table: Vec<String>,
+
+    pub comdat: Vec<Comdat>,
+
     // Parsed type list if parsed, otherwise empty.
     pub type_list: TypeList,
 }
@@ -32,12 +40,20 @@ impl Context {
             string_table: StringTable::default(),
             symbol_table: SymbolTable::default(),
             attribute_groups: HashMap::new(),
+            attributes: Vec::new(),
+            section_table: Vec::new(),
+            gc_table: Vec::new(),
+            comdat: Vec::new(),
             type_list: TypeList::default(),
         }
     }
 
     pub fn set_identification(&mut self, identification: Identification) {
         self.identification = Some(identification);
+    }
+
+    pub fn strtab(&self) -> &StringTable {
+        &self.string_table
     }
 
     pub fn set_string_table(&mut self, string_table: StringTable) {

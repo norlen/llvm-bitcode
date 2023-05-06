@@ -5,6 +5,7 @@ use crate::{
     bitcodes::{BlockId, ModuleCode},
     block::{parse_attribute_groups_block, parse_sync_scope_names_block, parse_type_block},
     context::Context,
+    record::{parse_global_variable, GlobalVariableError},
     Fields,
 };
 
@@ -75,6 +76,10 @@ pub enum ModuleError {
     #[error("Failed to parse filename record")]
     InvalidFilenameRecord,
 
+    /// Failed to parse global variable record.
+    #[error("Failed to parse global variable record")]
+    InvalidGlobalVariableRecord(#[from] GlobalVariableError),
+
     /// Failed to parse hash record.
     #[error("Failed to parse hash record")]
     InvalidHashRecord,
@@ -90,7 +95,6 @@ pub struct ModuleInfo {
     triple: String,
     datalayout: String,
     asm: Option<String>,
-    section_name: String,
     gc_name: Option<String>,
     deplib: Option<String>,
     filename: String,
@@ -104,7 +108,6 @@ struct ModuleInfoBuilder {
     triple: Option<String>,
     datalayout: Option<String>,
     asm: Option<String>,
-    section_name: Option<String>,
     gc_name: Option<String>,
     deplib: Option<String>,
     filename: Option<String>,
@@ -119,7 +122,6 @@ impl ModuleInfoBuilder {
             triple: self.triple.ok_or(ModuleError::InvalidModuleBlock)?,
             datalayout: self.datalayout.ok_or(ModuleError::InvalidModuleBlock)?,
             asm: self.asm,
-            section_name: self.section_name.ok_or(ModuleError::InvalidModuleBlock)?,
             gc_name: self.gc_name,
             deplib: self.deplib,
             filename: self.filename.ok_or(ModuleError::InvalidModuleBlock)?,
@@ -149,12 +151,6 @@ impl ModuleInfoBuilder {
     fn asm(&mut self, asm: String) -> &mut Self {
         info!(asm = asm);
         self.asm = Some(asm);
-        self
-    }
-
-    fn section_name(&mut self, section_name: String) -> &mut Self {
-        info!(section_name = section_name);
-        self.section_name = Some(section_name);
         self
     }
 
@@ -209,7 +205,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
                 match id {
                     BlockId::ParameterAttributes => {
                         bitstream.enter_block(block)?;
-                        let _attribute = parse_attribute_block(bitstream, ctx)?;
+                        let attributes = parse_attribute_block(bitstream, ctx)?;
+                        ctx.attributes = attributes;
                     }
                     BlockId::ParameterAttributeGroups => {
                         bitstream.enter_block(block)?;
@@ -310,7 +307,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
                             .to_string(0)
                             .ok_or(ModuleError::InvalidSectionNameRecord)?;
 
-                        module_info.section_name(section_name);
+                        info!(section_name = section_name);
+                        ctx.section_table.push(section_name);
                     }
                     ModuleCode::DepLib => {
                         let deplib = record
@@ -319,9 +317,6 @@ pub fn parse_module<T: AsRef<[u8]>>(
 
                         module_info.deplib(deplib);
                     }
-                    ModuleCode::GlobalVariable => info!("GlobalVariable record"),
-                    ModuleCode::Function => info!("Function record"),
-                    ModuleCode::AliasOld => info!("AliasOld record"),
                     ModuleCode::GcName => {
                         let gc_name = record
                             .to_string(0)
@@ -340,8 +335,6 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         // the regular bitcode header.
                         module_info.vst_offset(vst_offset - 1);
                     }
-                    ModuleCode::Alias => info!("Alias record"),
-                    ModuleCode::MetadataValuesUnused => info!("MetadataValuesUnused record"),
                     ModuleCode::Filename => {
                         let filename = record
                             .to_string(0)
@@ -362,7 +355,15 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         }
                         module_info.hash(hash);
                     }
+                    ModuleCode::GlobalVariable => {
+                        let (global_variable, _ty, _init_id) = parse_global_variable(&record, ctx)?;
+                        info!("parse global: {global_variable}");
+                    }
+                    ModuleCode::Function => info!("Function record"),
+                    ModuleCode::AliasOld => info!("AliasOld record"),
+                    ModuleCode::Alias => info!("Alias record"),
                     ModuleCode::IFunc => info!("IFunc record"),
+                    ModuleCode::MetadataValuesUnused => info!("MetadataValuesUnused record"),
                 }
             }
         }

@@ -4,7 +4,7 @@ use llvm_bitstream::{BitstreamReader, ReaderError};
 use smallvec::SmallVec;
 use tracing::{info, warn};
 
-use crate::{bitcodes::AttributeCode, context::Context, ir::AttributeGroup};
+use crate::{bitcodes::AttributeCode, context::Context, ir::AttributeList};
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum AttributeError {
@@ -17,35 +17,10 @@ pub enum AttributeError {
     ReaderError(#[from] ReaderError),
 }
 
-/// Collection of attributes groups.
-pub struct Attributes {
-    attributes: SmallVec<[Rc<AttributeGroup>; 8]>,
-}
-
-impl std::fmt::Display for Attributes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "!{{")?;
-        for (i, attribute) in self.attributes.iter().enumerate() {
-            if i + 1 == self.attributes.len() {
-                write!(f, "!{}", attribute.group_id)?;
-            } else {
-                write!(f, "!{} ", attribute.group_id)?;
-            }
-        }
-        write!(f, "}}")
-    }
-}
-
-impl Attributes {
-    pub fn new(attributes: SmallVec<[Rc<AttributeGroup>; 8]>) -> Self {
-        Self { attributes }
-    }
-}
-
 pub fn parse_attribute_block<T: AsRef<[u8]>>(
     bitstream: &mut BitstreamReader<T>,
     ctx: &Context,
-) -> Result<Vec<Attributes>, AttributeError> {
+) -> Result<Vec<Rc<AttributeList>>, AttributeError> {
     let mut record: SmallVec<[u64; 64]> = SmallVec::new();
 
     let mut attributes = Vec::new();
@@ -56,7 +31,7 @@ pub fn parse_attribute_block<T: AsRef<[u8]>>(
             continue;
         };
 
-        let mut current_attributes: SmallVec<[Rc<AttributeGroup>; 8]> = SmallVec::new();
+        let mut current_attributes = SmallVec::new();
         for group_id in record.iter().copied() {
             let attribute_group = ctx
                 .get_attribute_group(group_id)
@@ -66,9 +41,9 @@ pub fn parse_attribute_block<T: AsRef<[u8]>>(
             current_attributes.push(attribute_group);
         }
 
-        let current_attributes = Attributes::new(current_attributes);
+        let current_attributes = AttributeList::new(current_attributes);
         info!("Attribute !{}: {current_attributes}", attributes.len());
-        attributes.push(current_attributes);
+        attributes.push(Rc::new(current_attributes));
     }
 
     Ok(attributes)

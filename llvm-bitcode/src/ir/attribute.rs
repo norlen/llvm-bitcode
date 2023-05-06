@@ -1,6 +1,5 @@
-#![allow(unused)]
-
 use bitflags::bitflags;
+use smallvec::SmallVec;
 use std::rc::Rc;
 
 use crate::util::types::Type;
@@ -14,7 +13,30 @@ use crate::util::types::Type;
 // Splitting them up would mean lot of duplicates, but it may be worth it for consumers as they
 // only care about the attributes that are actually valid for the use case.
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct AttributeList(SmallVec<[Rc<AttributeGroup>; 8]>);
+
+impl std::fmt::Display for AttributeList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "!{{")?;
+        for (i, attribute) in self.0.iter().enumerate() {
+            if i + 1 == self.0.len() {
+                write!(f, "!{}", attribute.group_id)?;
+            } else {
+                write!(f, "!{} ", attribute.group_id)?;
+            }
+        }
+        write!(f, "}}")
+    }
+}
+
+impl AttributeList {
+    pub fn new(attribute_groups: SmallVec<[Rc<AttributeGroup>; 8]>) -> Self {
+        Self(attribute_groups)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct AttributeGroup {
     pub group_id: u64,
     pub attributes: Vec<Attribute>,
