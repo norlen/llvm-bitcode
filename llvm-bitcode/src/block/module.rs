@@ -5,7 +5,9 @@ use crate::{
     bitcodes::{BlockId, ModuleCode},
     block::{parse_attribute_groups_block, parse_sync_scope_names_block, parse_type_block},
     context::Context,
-    record::{parse_global_variable, GlobalVariableError},
+    record::{
+        parse_function_record, parse_global_variable, FunctionRecordError, GlobalVariableError,
+    },
     Fields,
 };
 
@@ -79,6 +81,10 @@ pub enum ModuleError {
     /// Failed to parse global variable record.
     #[error("Failed to parse global variable record")]
     InvalidGlobalVariableRecord(#[from] GlobalVariableError),
+
+    /// Failed to parse function record.
+    #[error("Failed to parse function record")]
+    InvalidFunctionRecord(#[from] FunctionRecordError),
 
     /// Failed to parse hash record.
     #[error("Failed to parse hash record")]
@@ -227,7 +233,7 @@ pub fn parse_module<T: AsRef<[u8]>>(
                     }
                     BlockId::Metadata => {
                         bitstream.skip_block()?;
-                        info!("Metadata block");
+                        info!("Skipping: Metadata block");
                     }
                     BlockId::Types => {
                         bitstream.enter_block(block)?;
@@ -251,7 +257,7 @@ pub fn parse_module<T: AsRef<[u8]>>(
                     }
                     BlockId::MetadataKind => {
                         bitstream.skip_block()?;
-                        info!("MetadataKind block");
+                        info!("Skipping: MetadataKind block");
                     }
                     BlockId::FullLtoGlobalValueSummary => {
                         bitstream.skip_block()?;
@@ -359,7 +365,10 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         let (global_variable, _ty, _init_id) = parse_global_variable(&record, ctx)?;
                         info!("parse global: {global_variable}");
                     }
-                    ModuleCode::Function => info!("Function record"),
+                    ModuleCode::Function => {
+                        let function = parse_function_record(&record, ctx)?;
+                        info!("parse function: {function}");
+                    }
                     ModuleCode::AliasOld => info!("AliasOld record"),
                     ModuleCode::Alias => info!("Alias record"),
                     ModuleCode::IFunc => info!("IFunc record"),

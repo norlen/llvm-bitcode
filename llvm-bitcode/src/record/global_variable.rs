@@ -4,9 +4,11 @@ use smallvec::SmallVec;
 
 use crate::{
     context::Context,
-    ir::{
-        DllStorageClass, GlobalVariable, Linkage, PreemptionSpecifier, SanitizerMetadata,
-        ThreadLocalMode, UnnamedAddr, Visibility,
+    ir::{GlobalVariable, SanitizerMetadata},
+    record::util::{
+        decode_linkage, get_attributes_opt, get_dll_storage_class, get_preemption_specifier,
+        get_section_opt, get_thread_local, get_unnamed_addr, get_visibility_opt,
+        has_implicit_comdat,
     },
     util::{parse_alignment, types::Type},
 };
@@ -117,47 +119,16 @@ pub fn parse_global_variable<const N: usize>(
     let linkage = decode_linkage(raw_linkage_value);
     let alignment = parse_alignment(record[6]);
 
-    // Sections are 1-indexed if available.
-    let section = match record.get(7).copied() {
-        Some(n) if n > 0 => {
-            let section = ctx
-                .section_table
-                .get((n - 1) as usize)
-                .cloned()
-                .ok_or(GlobalVariableError::InvalidRecord("section name not found"))?;
+    let section = get_section_opt(record.get(7).copied(), ctx)
+        .map_err(|_e| GlobalVariableError::InvalidRecord("section name not found"))?;
 
-            Some(section)
-        }
-        _ => None,
-    };
-
-    // Local linkage must have default visibility. Upgrade `Hidden` and `Protected` for old bitcode.
-    let visibility = match record.get(8).copied() {
-        Some(visibility) if !linkage.is_local() => decode_visibility(visibility),
-        _ => Visibility::Default,
-    };
-
-    let thread_local = record
-        .get(9)
-        .copied()
-        .map_or(ThreadLocalMode::NotThreadLocal, decode_thread_local);
-
-    let unnamed_addr = record
-        .get(10)
-        .copied()
-        .map_or(UnnamedAddr::None, decode_unnamed_addr);
-
+    let visibility = get_visibility_opt(record.get(8).copied(), linkage);
+    let thread_local = get_thread_local(record.get(9).copied());
+    let unnamed_addr = get_unnamed_addr(record.get(10).copied());
     let is_externally_initialized = record.get(11).copied().map_or(false, |v| v > 0);
 
-    let dll_storage_class = if linkage.is_local() {
-        // Global value with local linkage cannot have a dll storage class.
-        DllStorageClass::Default
-    } else {
-        match record.get(12).copied() {
-            Some(value) => decode_dll(value),
-            None => upgrade_dll_import_export_linkage(raw_linkage_value),
-        }
-    };
+    let dll_storage_class =
+        get_dll_storage_class(record.get(12).copied(), linkage, raw_linkage_value);
 
     let comdat = match record.get(13).copied() {
         Some(n) if n != 0 => {
@@ -175,31 +146,11 @@ pub fn parse_global_variable<const N: usize>(
         Some(_) | None => None,
     };
 
-    let attributes = match record.get(14).copied() {
-        Some(0) | None => None,
-        Some(n) => {
-            let attributes = ctx.attributes.get((n - 1) as usize).cloned().ok_or(
-                GlobalVariableError::InvalidRecord("could not get attributes"),
-            )?;
+    let attributes = get_attributes_opt(record.get(14).copied(), ctx)
+        .map_err(|_e| GlobalVariableError::InvalidRecord("could not get attributes"))?;
 
-            Some(attributes)
-        }
-    };
-
-    let preemption_specifier = {
-        let preemption_specifier = record
-            .get(15)
-            .copied()
-            .map_or(PreemptionSpecifier(false), decode_preemption_specifier);
-
-        let has_default_visibility = matches!(visibility, Visibility::Default);
-        let has_external_weak_linkage = matches!(linkage, Linkage::ExternalWeak);
-        if linkage.is_local() || !(has_default_visibility || has_external_weak_linkage) {
-            PreemptionSpecifier(true)
-        } else {
-            preemption_specifier
-        }
-    };
+    let preemption_specifier =
+        get_preemption_specifier(record.get(15).copied(), visibility, linkage);
 
     let partition = if let (Some(&offset), Some(&size)) = (record.get(16), record.get(17)) {
         if size == 0 {
@@ -243,117 +194,11 @@ pub fn parse_global_variable<const N: usize>(
     Ok((global_variable, ty, init_id))
 }
 
-fn has_implicit_comdat(raw_linkage_value: u64) -> bool {
-    // These values match
-    // - Old WeakAnyLinkage (1).
-    // - Old LinkOnceAnyLinkage (4).
-    // - Old WeakODRLinkage (10).
-    // - Old LinkOnceODRLinkage (11).
-    matches!(raw_linkage_value, 1 | 4 | 10 | 11)
-}
-
-fn upgrade_dll_import_export_linkage(value: u64) -> DllStorageClass {
-    match value {
-        5 => DllStorageClass::Import,
-        6 => DllStorageClass::Export,
-        _ => DllStorageClass::Default,
-    }
-}
-
 fn decode_sanitizer_metadata(value: u64) -> SanitizerMetadata {
     SanitizerMetadata {
         no_address: (value & (1 << 0)) > 0,
         no_hw_address: (value & (1 << 1)) > 0,
         memtag: (value & (1 << 2)) > 0,
         is_dyn_init: (value & (1 << 3)) > 0,
-    }
-}
-
-/// Convert an integer value to a [Linkage].
-///
-/// There are remapped obselete linkages
-///
-/// - `DllImportLinkage` (5) -> `External`.
-/// - `DllExportLinkage` (6) -> `External`.
-/// - `LinkerPrivateLinkage` (13) -> `Private`.
-/// - `LinkerPrivateWeakLinkage` (14) -> `Private`.
-fn decode_linkage(value: u64) -> Linkage {
-    #[allow(clippy::match_same_arms)]
-    match value {
-        0 | 5 | 6 | 15 => Linkage::External,
-        2 => Linkage::Appending,
-        3 => Linkage::Internal,
-        7 => Linkage::ExternalWeak,
-        8 => Linkage::Common,
-        9 | 13 | 14 => Linkage::Private,
-        12 => Linkage::AvailableExternally,
-        1 | 16 => Linkage::WeakAny,
-        10 | 17 => Linkage::WeakOdr,
-        4 | 18 => Linkage::LinkOnceAny,
-        11 | 19 => Linkage::LinkOnceOdr,
-
-        // Map unknown values to `External`.
-        _ => Linkage::External,
-    }
-}
-
-fn decode_visibility(value: u64) -> Visibility {
-    #[allow(clippy::match_same_arms)]
-    match value {
-        0 => Visibility::Default,
-        1 => Visibility::Hidden,
-        2 => Visibility::Protected,
-
-        // Map unknown values to `Default`.
-        _ => Visibility::Default,
-    }
-}
-
-fn decode_dll(value: u64) -> DllStorageClass {
-    #[allow(clippy::match_same_arms)]
-    match value {
-        0 => DllStorageClass::Default,
-        1 => DllStorageClass::Import,
-        2 => DllStorageClass::Export,
-
-        // Map unknown values to `Default`.
-        _ => DllStorageClass::Default,
-    }
-}
-
-fn decode_unnamed_addr(value: u64) -> UnnamedAddr {
-    #[allow(clippy::match_same_arms)]
-    match value {
-        0 => UnnamedAddr::None,
-        1 => UnnamedAddr::Global,
-        2 => UnnamedAddr::Local,
-
-        // Map unknown values to `None`.
-        _ => UnnamedAddr::None,
-    }
-}
-
-fn decode_preemption_specifier(value: u64) -> PreemptionSpecifier {
-    #[allow(clippy::match_same_arms)]
-    match value {
-        0 => PreemptionSpecifier(false),
-        1 => PreemptionSpecifier(true),
-
-        // Map unknown values to `true`.
-        _ => PreemptionSpecifier(true),
-    }
-}
-
-fn decode_thread_local(value: u64) -> ThreadLocalMode {
-    #[allow(clippy::match_same_arms)]
-    match value {
-        0 => ThreadLocalMode::NotThreadLocal,
-        1 => ThreadLocalMode::GeneralDynamic,
-        2 => ThreadLocalMode::LocalDynamic,
-        3 => ThreadLocalMode::InitialExec,
-        4 => ThreadLocalMode::LocalExec,
-
-        // Map unknown values to `GeneralDynamic`.
-        _ => ThreadLocalMode::GeneralDynamic,
     }
 }

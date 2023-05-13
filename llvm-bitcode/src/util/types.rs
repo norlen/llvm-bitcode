@@ -135,6 +135,18 @@ impl Type {
         )
     }
 
+    /// Returns `true` if the type is a function.
+    pub fn is_function(&self) -> bool {
+        matches!(
+            self,
+            Type::Function {
+                parameters: _,
+                return_ty: _,
+                is_var_arg: _
+            }
+        )
+    }
+
     // pub fn is_fp_ty(&self) -> bool {
     //     matches!(self, Type::FloatingPoint(_)) // Probably not true with x86 AMX amd MMX
     // }

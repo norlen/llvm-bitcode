@@ -1,11 +1,13 @@
 mod attribute;
 mod basic_block;
+mod function;
 mod global_variable;
 
 pub use attribute::{
     Attribute, AttributeGroup, AttributeList, EnumAttribute, IntAttribute, Location, MemoryEffects,
     MemoryEffectsFlags, TypeAttribute, UnwindTableKind,
 };
+pub use function::{CallingConvention, Function};
 pub use global_variable::{GlobalVariable, SanitizerMetadata};
 
 #[derive(Debug, Clone, PartialEq)]
