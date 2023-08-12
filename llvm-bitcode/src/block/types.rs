@@ -6,7 +6,7 @@ use tracing::{error, info, warn};
 
 use crate::{
     bitcodes::TypeCode,
-    util::types::{FloatingPointType, IntegerType, Structure, StructureType, Type},
+    util::types::{FloatingPointType, IntegerType, Structure, StructureType, Type, VectorType},
     Fields,
 };
 
@@ -250,11 +250,11 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                     .ok_or(TypesError::InvalidVectorRecord)?;
                 let is_scalable = record.get(2).map_or(false, |v| *v > 0);
 
-                Type::Vector {
+                Type::Vector(VectorType {
                     num_elements,
                     ty,
                     is_scalable,
-                }
+                })
             }
             TypeCode::StructAnon => {
                 // LLVM only checks that it's not empty, but `is_packed` is then retrieve by index

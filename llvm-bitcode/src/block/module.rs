@@ -3,7 +3,10 @@ use tracing::{error, info, warn};
 
 use crate::{
     bitcodes::{BlockId, ModuleCode},
-    block::{parse_attribute_groups_block, parse_sync_scope_names_block, parse_type_block},
+    block::{
+        parse_attribute_groups_block, parse_constant_block, parse_sync_scope_names_block,
+        parse_type_block,
+    },
     context::Context,
     record::{
         parse_function_record, parse_global_variable, FunctionRecordError, GlobalVariableError,
@@ -13,7 +16,7 @@ use crate::{
 
 use super::{
     parse_attribute_block, parse_operand_bundle_tags_block, AttributeError, AttributeGroupError,
-    OperandBundleTagsError, SyncScopeNamesError, TypesError,
+    ConstantError, OperandBundleTagsError, SyncScopeNamesError, TypesError,
 };
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -41,6 +44,10 @@ pub enum ModuleError {
     /// Couldn't parse an `OperandBundleTags` block.
     #[error("Failed to parse a OperandBundleTags block")]
     InvalidOperandBundleTags(#[from] OperandBundleTagsError),
+
+    /// Couldn't parse an `Constant` block.
+    #[error("Failed to parse a Constant block")]
+    InvalidConstant(#[from] ConstantError),
 
     /// Failed to parse version record.
     #[error("Failed to parse version record")]
@@ -220,8 +227,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         ctx.set_attribute_groups(attribute_groups);
                     }
                     BlockId::Constants => {
-                        bitstream.skip_block()?;
-                        info!("Constants block");
+                        bitstream.enter_block(block)?;
+                        parse_constant_block(bitstream, ctx)?;
                     }
                     BlockId::Function => {
                         bitstream.skip_block()?;

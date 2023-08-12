@@ -1,7 +1,9 @@
 mod attribute;
 mod basic_block;
+mod float;
 mod function;
 mod global_variable;
+mod int;
 
 pub use attribute::{
     Attribute, AttributeGroup, AttributeList, EnumAttribute, IntAttribute, Location, MemoryEffects,
@@ -9,6 +11,7 @@ pub use attribute::{
 };
 pub use function::{CallingConvention, Function};
 pub use global_variable::{GlobalVariable, SanitizerMetadata};
+pub use int::APInt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Comdat;

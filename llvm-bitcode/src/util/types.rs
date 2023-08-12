@@ -20,11 +20,7 @@ pub enum Type {
     ///
     /// Vector types are used when multiple primitive values are operated on in parallel using SIMD
     /// instructions.
-    Vector {
-        num_elements: u64,
-        ty: Rc<Type>,
-        is_scalable: bool,
-    },
+    Vector(VectorType),
 
     /// An array arranges elements sequentially in memory ([Array Type](https://llvm.org/docs/LangRef.html#array-type)).
     Array { num_elements: u64, ty: Rc<Type> },
@@ -54,6 +50,17 @@ pub enum Type {
         type_parameters: SmallVec<[Rc<Type>; 4]>,
         int_parameters: SmallVec<[u32; 8]>,
     },
+}
+
+/// Vector type is a simple type that represents a vector of elements ([Vector Type](https://llvm.org/docs/LangRef.html#vector-type))
+///
+/// Vector types are used when multiple primitive values are operated on in parallel using SIMD
+/// instructions.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct VectorType {
+    pub num_elements: u64,
+    pub ty: Rc<Type>,
+    pub is_scalable: bool,
 }
 
 impl Type {
@@ -127,11 +134,11 @@ impl Type {
                     is_var_arg: _,
                 }
                 | Type::FloatingPoint(FloatingPointType::X86Amx)
-                | Type::Vector {
+                | Type::Vector(VectorType {
                     num_elements: _,
                     ty: _,
                     is_scalable: true,
-                }
+                })
         )
     }
 
@@ -168,6 +175,18 @@ impl Type {
     // }
 }
 
+/// For vector types return the contained type, otherwise return the type itself.
+pub fn get_scalar_type(ty: &Rc<Type>) -> &Rc<Type> {
+    match ty.as_ref() {
+        Type::Vector(VectorType {
+            num_elements: _,
+            ty,
+            is_scalable: _,
+        }) => ty,
+        _ => ty,
+    }
+}
+
 impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -192,11 +211,11 @@ impl std::fmt::Display for Type {
                     write!(f, "ptr addrspace({address_space})")
                 }
             }
-            Type::Vector {
+            Type::Vector(VectorType {
                 num_elements,
                 ty,
                 is_scalable,
-            } => {
+            }) => {
                 if *is_scalable {
                     write!(f, "<vscale x {num_elements} x {ty}>")
                 } else {

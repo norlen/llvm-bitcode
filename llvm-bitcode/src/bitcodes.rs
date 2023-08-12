@@ -1056,7 +1056,7 @@ impl CastOperationCode {
 /// Unary operation codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(u8)]
-enum UnaryOperationCode {
+pub enum UnaryOperationCode {
     /// `UNOP_FNEG`
     FloatingPointNegation = 0,
 }
