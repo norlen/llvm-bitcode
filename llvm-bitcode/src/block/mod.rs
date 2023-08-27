@@ -14,7 +14,7 @@ mod vst;
 
 pub use attribute::{parse_attribute_block, AttributeError};
 pub use attribute_group::{parse_attribute_groups_block, AttributeGroupError};
-pub use constants::{parse_constant_block, ConstantError};
+pub use constants::{parse_constant_block, BitcodeConstant, ConstantError};
 pub use identification::{Identification, IdentificationError};
 pub use module::{parse_module, ModuleError, ModuleInfo};
 pub use operand_bundle_tags::{

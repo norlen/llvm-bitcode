@@ -1,5 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
+use super::util::value::ValueList;
 use crate::{
     block::{Identification, StringTable, SymbolTable, TypeList},
     ir::{AttributeGroup, AttributeList, Comdat},
@@ -30,7 +31,9 @@ pub struct Context {
     pub comdat: Vec<Comdat>,
 
     // Parsed type list if parsed, otherwise empty.
-    pub type_list: TypeList,
+    pub types: TypeList,
+
+    pub values: ValueList,
 }
 
 impl Context {
@@ -44,7 +47,8 @@ impl Context {
             section_table: Vec::new(),
             gc_table: Vec::new(),
             comdat: Vec::new(),
-            type_list: TypeList::default(),
+            types: TypeList::default(),
+            values: ValueList::new(),
         }
     }
 

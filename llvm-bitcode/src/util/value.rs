@@ -1,35 +1,43 @@
 use std::{collections::HashMap, rc::Rc};
 
+use crate::{
+    block::BitcodeConstant,
+    ir::{Function, GlobalVariable},
+    record::Instruction,
+};
+
+use super::types::Type;
+
 /// Values used throughout the bitcode.
 ///
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     /// Constant value, can either be at the module scope or constant inside a function block.
-    Constant,
+    Constant(BitcodeConstant),
 
     /// Global variable at the module scope.
-    GlobalVariable,
+    GlobalVariable(GlobalVariable),
 
     /// Function declaration.
-    Function,
+    Function(Function),
 
     /// Argument passed to a function, should only exist in a function block scope.
-    Argument,
+    Argument(Rc<Type>),
 
     /// Instructions inside a function block, the resulting value comes from evaluating the
     /// instruction.
-    Instruction,
+    Instruction(Instruction),
 }
 
 /// Values currently in use by the parser.
 ///
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ValueList {
-    /// Maping of value index to a value, a map is used since values can be forward declared, i.e.,
+    /// Mapping of value index to a value, a map is used since values can be forward declared, i.e.,
     /// parts of the IR can reference later values.
-    values: HashMap<u64, (Rc<Value>, u64)>,
+    values: HashMap<u64, Rc<Value>>,
 
     /// Keep track of our current size.
     size: u64,
@@ -49,16 +57,18 @@ impl ValueList {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.values.len()
+    }
+
     ///
     pub fn push(&mut self, value: Value) {
-        let index = self.size;
-        // self.values.insert(index, Rc::new(value));
-        todo!()
+        self.values.insert(self.size, Rc::new(value));
+        self.size += 1;
     }
 
     pub fn get(&self, index: u64) -> Option<&Rc<Value>> {
-        // self.values.get(&index)
-        todo!()
+        self.values.get(&index)
     }
 
     pub fn push_scope(&mut self) {
@@ -71,14 +81,14 @@ impl ValueList {
     }
 }
 
-pub struct Values(Vec<Rc<Value>>);
+// pub struct Values(Vec<Rc<Value>>);
 
-impl Values {
-    pub fn get(&self, vid: usize) -> Option<&Rc<Value>> {
-        self.0.get(vid)
-    }
+// impl Values {
+//     pub fn get(&self, vid: usize) -> Option<&Rc<Value>> {
+//         self.0.get(vid)
+//     }
 
-    pub fn add(&mut self, value: Value) {
-        self.0.push(Rc::new(value));
-    }
-}
+//     pub fn add(&mut self, value: Value) {
+//         self.0.push(Rc::new(value));
+//     }
+// }

@@ -58,7 +58,7 @@ pub enum ConstantError {
 /// Constants internal to the bitcode reader.
 ///
 /// These contants will later be materialized into IR constants.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum BitcodeConstant {
     // Null(Rc<Type>),
     /// Undefined constant value.
@@ -97,11 +97,25 @@ pub enum BitcodeConstant {
     /// ...
     Struct(Rc<Type>, SmallVec<[u32; 16]>),
 
+    /// Inline assembly
+    InlineAsm(InlineAsm),
+
     /// Constant expression.
     Expr(BitcodeConstantExpr),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineAsm {
+    pub function_ty: u32,
+    pub has_side_effects: bool,
+    pub is_align_stack: bool,
+    pub asm_dialect: u8,
+    pub can_throw: bool,
+    pub asm: String,
+    pub constant: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BitcodeConstantExpr {
     FpNeg(Rc<Type>, u64),
 }
@@ -131,11 +145,7 @@ fn get_null_value(ty: Rc<Type>) -> BitcodeConstant {
             ty: _,
         }
         | Type::Structure(_) => BitcodeConstant::AggregateZero(ty),
-        Type::Function {
-            parameters: _,
-            return_ty: _,
-            is_var_arg: _,
-        } => todo!(),
+        Type::Function(_) => todo!(),
         Type::Label => todo!(),
         Type::Token => todo!(),
         Type::Metadata => todo!(),
@@ -172,11 +182,7 @@ pub fn parse_constant_block<T: AsRef<[u8]>>(
         // this set type.
         if matches!(code, ConstantsCode::SetType) {
             let tid = record.get(0).copied().ok_or(ConstantError::InvalidRecord)?;
-            let ty = ctx
-                .type_list
-                .get(tid)
-                .cloned()
-                .ok_or(ConstantError::InvalidRecord)?;
+            let ty = ctx.types.get(tid).ok_or(ConstantError::InvalidRecord)?;
 
             if matches!(ty.as_ref(), Type::Void) {
                 return Err(ConstantError::InvalidRecord);
@@ -308,7 +314,25 @@ pub fn parse_constant_block<T: AsRef<[u8]>>(
             ConstantsCode::DsoLocalEquivalent => todo!(),
             ConstantsCode::NoCfiValue => todo!(),
 
-            ConstantsCode::InlineAsm => todo!(),
+            ConstantsCode::InlineAsm => {
+                if record.len() < 2 {
+                    return Err(ConstantError::InvalidRecord);
+                }
+                let function_ty = record[0];
+                let raw_flags = record[1];
+
+                // TODO: Check UpgradeInlineAsmString(&AsmStr);
+                let inline_asm = InlineAsm {
+                    function_ty: function_ty as u32,
+                    has_side_effects: (raw_flags & 0b1) > 0,
+                    is_align_stack: ((raw_flags >> 1) & 0b1) > 0,
+                    asm_dialect: ((raw_flags >> 2) & 0b1) as u8,
+                    can_throw: ((raw_flags >> 3) & 0b1) > 0,
+                    asm: String::new(),
+                    constant: String::new(),
+                };
+                BitcodeConstant::InlineAsm(inline_asm)
+            }
 
             // Constant expressions
             ConstantsCode::ConstexprBinop => todo!(),

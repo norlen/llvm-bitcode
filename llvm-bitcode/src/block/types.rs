@@ -6,7 +6,9 @@ use tracing::{error, info, warn};
 
 use crate::{
     bitcodes::TypeCode,
-    util::types::{FloatingPointType, IntegerType, Structure, StructureType, Type, VectorType},
+    util::types::{
+        FloatingPointType, FunctionType, IntegerType, Structure, StructureType, Type, VectorType,
+    },
     Fields,
 };
 
@@ -106,8 +108,8 @@ impl TypeList {
     }
 
     /// Get a type by id, returns `None` if the type id does not exist.
-    pub fn get(&self, tid: u64) -> Option<&Rc<Type>> {
-        self.types.get(tid as usize)
+    pub fn get(&self, tid: u64) -> Option<Rc<Type>> {
+        self.types.get(tid as usize).cloned()
     }
 
     /// Add a [`Type`] to the `TypeList`.
@@ -229,7 +231,6 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                 let num_elements = record[0];
                 let ty = type_list
                     .get(record[1])
-                    .cloned()
                     .ok_or(TypesError::InvalidArrayRecord)?;
 
                 if !ty.is_valid_element_type() {
@@ -246,7 +247,6 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                 let num_elements = record[0];
                 let ty = type_list
                     .get(record[1])
-                    .cloned()
                     .ok_or(TypesError::InvalidVectorRecord)?;
                 let is_scalable = record.get(2).map_or(false, |v| *v > 0);
 
@@ -270,7 +270,6 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                     .map(|&tid| {
                         type_list
                             .get(tid)
-                            .cloned()
                             .ok_or(TypesError::InvalidStructAnonRecord)
                     })
                     .collect::<Result<_, _>>()?;
@@ -294,7 +293,6 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                     .map(|&tid| {
                         type_list
                             .get(tid)
-                            .cloned()
                             .ok_or(TypesError::InvalidStructAnonRecord)
                     })
                     .collect::<Result<_, _>>()?;
@@ -323,7 +321,6 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                 let is_var_arg = record[0] > 0;
                 let return_ty = type_list
                     .get(record[1])
-                    .cloned()
                     .ok_or(TypesError::InvalidFunctionRecord)?;
 
                 let parameters: SmallVec<[Rc<Type>; 8]> = record
@@ -333,7 +330,6 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                     .map(|param_tid| {
                         let ty = type_list
                             .get(param_tid)
-                            .cloned()
                             .ok_or(TypesError::InvalidFunctionRecord)?;
 
                         // Only first class types are valid as arguments.
@@ -344,11 +340,11 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                     })
                     .collect::<Result<_, _>>()?;
 
-                Type::Function {
+                Type::Function(FunctionType {
                     parameters,
                     return_ty,
                     is_var_arg,
-                }
+                })
             }
             TypeCode::TargetType => {
                 if record.len() < 1 {
@@ -368,7 +364,6 @@ pub fn parse_type_block<T: AsRef<[u8]>>(
                     .map(|tid: &u64| {
                         type_list
                             .get(*tid)
-                            .cloned()
                             .ok_or(TypesError::InvalidTargetTypeRecord)
                     })
                     .collect::<Result<_, _>>()?;

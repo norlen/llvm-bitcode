@@ -7,7 +7,7 @@ use super::{
 };
 
 /// IR Function.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     pub name: String,
 

@@ -91,9 +91,8 @@ pub fn parse_global_variable<const N: usize>(
         .ok_or(GlobalVariableError::InvalidRecord("could not get name"))?;
 
     let ty = ctx
-        .type_list
+        .types
         .get(record[2])
-        .cloned()
         .ok_or(GlobalVariableError::InvalidRecord("unknown type"))?;
 
     let PackedValues {

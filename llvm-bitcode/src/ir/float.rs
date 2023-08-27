@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 /// Arbitrary precision floating point value.
 ///
 /// NOTE: Currently WIP, all values are f64 now.

@@ -71,9 +71,8 @@ pub fn parse_function_record<const N: usize>(
 
     let ty = {
         let ty = ctx
-            .type_list
+            .types
             .get(record[2])
-            .cloned()
             .ok_or(FunctionRecordError::InvalidRecord("invalid type id"))?;
 
         if matches!(ty.as_ref(), Type::Pointer { address_space: _ }) {

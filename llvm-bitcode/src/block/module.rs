@@ -1,22 +1,26 @@
+use std::collections::VecDeque;
+
 use llvm_bitstream::{BitstreamReader, Entry, ReaderError};
 use tracing::{error, info, warn};
 
 use crate::{
     bitcodes::{BlockId, ModuleCode},
     block::{
-        parse_attribute_groups_block, parse_constant_block, parse_sync_scope_names_block,
-        parse_type_block,
+        function::parse_function_block, parse_attribute_groups_block, parse_constant_block,
+        parse_sync_scope_names_block, parse_type_block,
     },
     context::Context,
     record::{
         parse_function_record, parse_global_variable, FunctionRecordError, GlobalVariableError,
     },
+    util::value::Value,
     Fields,
 };
 
 use super::{
-    parse_attribute_block, parse_operand_bundle_tags_block, AttributeError, AttributeGroupError,
-    ConstantError, OperandBundleTagsError, SyncScopeNamesError, TypesError,
+    function::FunctionBlockError, parse_attribute_block, parse_operand_bundle_tags_block,
+    AttributeError, AttributeGroupError, ConstantError, OperandBundleTagsError,
+    SyncScopeNamesError, TypesError,
 };
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -48,6 +52,10 @@ pub enum ModuleError {
     /// Couldn't parse an `Constant` block.
     #[error("Failed to parse a Constant block")]
     InvalidConstant(#[from] ConstantError),
+
+    /// Failed to parse function block.
+    #[error("Failed to parse function block")]
+    InvalidFunctionBlock(#[from] FunctionBlockError),
 
     /// Failed to parse version record.
     #[error("Failed to parse version record")]
@@ -203,6 +211,7 @@ pub fn parse_module<T: AsRef<[u8]>>(
     ctx: &mut Context,
 ) -> Result<ModuleInfo, ModuleError> {
     let mut module_info = ModuleInfoBuilder::default();
+    let mut functions = VecDeque::new();
 
     let mut record = Fields::<32>::new();
     while let Some(entry) = bitstream.advance()? {
@@ -228,11 +237,23 @@ pub fn parse_module<T: AsRef<[u8]>>(
                     }
                     BlockId::Constants => {
                         bitstream.enter_block(block)?;
-                        parse_constant_block(bitstream, ctx)?;
+                        let constants = parse_constant_block(bitstream, ctx)?;
+
+                        for constant in constants {
+                            ctx.values.push(Value::Constant(constant));
+                        }
                     }
                     BlockId::Function => {
-                        bitstream.skip_block()?;
-                        info!("Function block");
+                        bitstream.enter_block(block)?;
+
+                        let function = functions.pop_front().ok_or_else(|| {
+                            error!("No function type found for function block");
+                            ModuleError::InvalidModuleBlock
+                        })?;
+
+                        ctx.values.push_scope();
+                        parse_function_block(bitstream, &function, ctx)?;
+                        ctx.values.pop_scope();
                     }
                     BlockId::ValueSymtab => {
                         bitstream.skip_block()?;
@@ -244,7 +265,7 @@ pub fn parse_module<T: AsRef<[u8]>>(
                     }
                     BlockId::Types => {
                         bitstream.enter_block(block)?;
-                        ctx.type_list = parse_type_block(bitstream)?;
+                        ctx.types = parse_type_block(bitstream)?;
                     }
                     BlockId::Uselist => {
                         bitstream.skip_block()?;
@@ -371,10 +392,15 @@ pub fn parse_module<T: AsRef<[u8]>>(
                     ModuleCode::GlobalVariable => {
                         let (global_variable, _ty, _init_id) = parse_global_variable(&record, ctx)?;
                         info!("parse global: {global_variable}");
+                        ctx.values.push(Value::GlobalVariable(global_variable));
                     }
                     ModuleCode::Function => {
                         let function = parse_function_record(&record, ctx)?;
                         info!("parse function: {function}");
+
+                        // Keep track of function types so we can match these with parsing function blocks.
+                        functions.push_back(function.clone());
+                        ctx.values.push(Value::Function(function));
                     }
                     ModuleCode::AliasOld => info!("AliasOld record"),
                     ModuleCode::Alias => info!("Alias record"),

@@ -84,7 +84,7 @@ mod block;
 mod context;
 pub mod ir;
 mod record;
-mod util;
+pub(crate) mod util;
 
 use block::{Identification, IdentificationError, ModuleError, StringTableError, SymbolTableError};
 use context::Context;

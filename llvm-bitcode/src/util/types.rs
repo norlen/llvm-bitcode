@@ -29,11 +29,7 @@ pub enum Type {
     Structure(Structure),
 
     /// Function declaration.
-    Function {
-        parameters: SmallVec<[Rc<Type>; 8]>,
-        return_ty: Rc<Type>,
-        is_var_arg: bool,
-    },
+    Function(FunctionType),
 
     /// Code label ([Label Type](https://llvm.org/docs/LangRef.html#label-type)).
     Label,
@@ -50,6 +46,14 @@ pub enum Type {
         type_parameters: SmallVec<[Rc<Type>; 4]>,
         int_parameters: SmallVec<[u32; 8]>,
     },
+}
+
+/// Function declaration.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FunctionType {
+    pub parameters: SmallVec<[Rc<Type>; 8]>,
+    pub return_ty: Rc<Type>,
+    pub is_var_arg: bool,
 }
 
 /// Vector type is a simple type that represents a vector of elements ([Vector Type](https://llvm.org/docs/LangRef.html#vector-type))
@@ -110,15 +114,7 @@ impl Type {
     ///
     /// A first class value is currently all types except for `void` and `function`.
     pub fn is_first_class(&self) -> bool {
-        !matches!(
-            self,
-            Type::Void
-                | Type::Function {
-                    parameters: _,
-                    return_ty: _,
-                    is_var_arg: _
-                }
-        )
+        !matches!(self, Type::Void | Type::Function(_))
     }
 
     /// Returns `true` if the type can be part of an array.
@@ -128,11 +124,7 @@ impl Type {
             Type::Void
                 | Type::Label
                 | Type::Metadata
-                | Type::Function {
-                    parameters: _,
-                    return_ty: _,
-                    is_var_arg: _,
-                }
+                | Type::Function(_)
                 | Type::FloatingPoint(FloatingPointType::X86Amx)
                 | Type::Vector(VectorType {
                     num_elements: _,
@@ -144,14 +136,7 @@ impl Type {
 
     /// Returns `true` if the type is a function.
     pub fn is_function(&self) -> bool {
-        matches!(
-            self,
-            Type::Function {
-                parameters: _,
-                return_ty: _,
-                is_var_arg: _
-            }
-        )
+        matches!(self, Type::Function(_))
     }
 
     // pub fn is_fp_ty(&self) -> bool {
@@ -271,11 +256,11 @@ impl std::fmt::Display for Type {
                 }
                 Structure::Opaque(name) => write!(f, "%{name} = type opaque"),
             },
-            Type::Function {
+            Type::Function(FunctionType {
                 parameters,
                 return_ty,
                 is_var_arg,
-            } => {
+            }) => {
                 write!(f, "{return_ty} (")?;
                 for (i, parameter) in parameters.iter().enumerate() {
                     if i + 1 == parameters.len() && !*is_var_arg {
