@@ -10,6 +10,17 @@ pub enum RecordError {
     IncompleteRecord,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct IncompleteRecordError;
+
+impl std::error::Error for IncompleteRecordError {}
+
+impl std::fmt::Display for IncompleteRecordError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("record does not have enough fields")
+    }
+}
+
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct Fields<const N: usize>(SmallVec<[u64; N]>);
 
@@ -123,10 +134,10 @@ impl<'a, const N: usize> FieldsIter<'a, N> {
     ///
     /// # Errors
     ///
-    /// Returns [`RecordError::IncompleteRecord`] if `size` is less than the length of the fields.
-    pub fn require_min_size(&self, size: usize) -> Result<(), RecordError> {
+    /// Returns [`IncompleteRecordError`] if `size` is less than the length of the fields.
+    pub fn require_min_size(&self, size: usize) -> Result<(), IncompleteRecordError> {
         if self.record.len() < size {
-            Err(RecordError::IncompleteRecord)
+            Err(IncompleteRecordError)
         } else {
             Ok(())
         }
@@ -140,12 +151,12 @@ impl<'a, const N: usize> FieldsIter<'a, N> {
         self.record.is_empty()
     }
 
-    pub fn next_or_err(&mut self) -> Result<u64, RecordError> {
+    pub fn next_or_err(&mut self) -> Result<u64, IncompleteRecordError> {
         self.index += 1;
         self.record
             .get(self.index - 1)
             .copied()
-            .ok_or(RecordError::IncompleteRecord)
+            .ok_or(IncompleteRecordError)
     }
 
     // pub fn maybe_next(&mut self) -> Option<u64> {

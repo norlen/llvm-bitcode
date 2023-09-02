@@ -3,11 +3,13 @@ use std::rc::Rc;
 use num_enum::TryFromPrimitive;
 
 use crate::{
-    context::Context,
+    context::{Context, ContextError},
     ir::{
         AttributeList, CallingConvention, DllStorageClass, Linkage, PreemptionSpecifier,
         ThreadLocalMode, UnnamedAddr, Visibility,
     },
+    util::{fields::IncompleteRecordError, types::Type, value::Value},
+    FieldsIter,
 };
 
 /// Returns `true` if the given linkage has implicit comdat.
@@ -382,4 +384,55 @@ fn decode_preemption_specifier(value: u64) -> PreemptionSpecifier {
         // Map unknown values to `true`.
         _ => PreemptionSpecifier(true),
     }
+}
+
+const USE_RELATIVE_IDS: bool = true;
+
+/// Returns the value and type from the given record.
+///
+///
+pub fn get_value_type_pair<'a, const N: usize, E>(
+    record: &mut FieldsIter<'a, N>,
+    next_value_number: u64,
+    ctx: &Context,
+) -> Result<(Rc<Value>, Rc<Type>), E>
+where
+    E: From<ContextError> + From<IncompleteRecordError>,
+{
+    let value_id = record.next_or_err()?;
+    let value_id = if USE_RELATIVE_IDS {
+        next_value_number - value_id
+    } else {
+        value_id
+    };
+
+    // If the value is not a forward reference just return it.
+    let (value, ty) = if value_id < next_value_number {
+        let ty = ctx.get_value_type(value_id)?;
+        let value = ctx.get_value(value_id)?;
+        (value, ty)
+    } else {
+        let tid = record.next_or_err()?;
+        let ty = ctx.get_ty(tid)?;
+        let value = ctx.get_value(value_id)?;
+        (value, ty)
+    };
+
+    Ok((value, ty))
+}
+
+pub fn get_value(
+    id: u64,
+    next_value_number: u64,
+    ctx: &Context,
+) -> Result<Rc<Value>, ContextError> {
+    let id = id as u32;
+    let next_value_number = next_value_number as u32;
+
+    let id = if USE_RELATIVE_IDS {
+        next_value_number.wrapping_sub(id)
+    } else {
+        id
+    };
+    ctx.get_value(id as u64)
 }

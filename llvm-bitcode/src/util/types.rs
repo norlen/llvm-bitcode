@@ -68,9 +68,9 @@ pub struct VectorType {
 }
 
 impl Type {
-    // pub fn is_pointer(&self) -> bool {
-    //     matches!(self, Type::Pointer { address_space: _ })
-    // }
+    pub fn is_pointer(&self) -> bool {
+        matches!(self, Type::Pointer { address_space: _ })
+    }
 
     // pub fn is_sized(&self) -> bool {
     //     match self {

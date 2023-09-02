@@ -139,10 +139,9 @@ pub fn parse_attribute_groups_block<T: AsRef<[u8]>>(
         // - ATTRIBUTE: [ kind, key+, value* ]
         // Some keys and values can be encoded as strings, the rest are encoded as integers.
         let group_id = record[0];
-        let group_kind: AttributeGroupType = record[1].into();
+        // let group_kind: AttributeGroupType = record[1].into();
 
         let mut memory_effects = MemoryEffects::unknown();
-
         let mut attribute_group = AttributeGroup::new(group_id);
 
         // attributes are of variable size.
@@ -159,12 +158,13 @@ pub fn parse_attribute_groups_block<T: AsRef<[u8]>>(
                     };
                     index += 1;
 
-                    if matches!(group_kind, AttributeGroupType::Function) {
-                        if let Some(me) = upgrade_old_memory_attribute(memory_effects, kind) {
-                            memory_effects = me;
-                            continue;
-                        }
+                    // if matches!(group_kind, AttributeGroupType::Function) {
+                    if let Some(me) = upgrade_old_memory_attribute(memory_effects, kind) {
+                        memory_effects = me;
+                        continue;
                     }
+                    // }
+
                     // Old attribute may be present as enums, when they are type attributes in newer
                     // versions. Ensure these are parsed correctly, and ignore that they are enum
                     // attributes here.
@@ -228,9 +228,8 @@ pub fn parse_attribute_groups_block<T: AsRef<[u8]>>(
                             index += 1;
 
                             let ty = ctx
-                                .type_list
+                                .types
                                 .get(tid)
-                                .cloned()
                                 .ok_or(AttributeGroupError::TypeNotFound(tid))?;
 
                             Some(ty)

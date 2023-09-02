@@ -6,7 +6,10 @@ use crate::{
     block::parse_constant_block,
     context::Context,
     ir::Function,
-    record::{parse_instruction_alloca, parse_instruction_call, AllocaError, CallError},
+    record::{
+        parse_instruction_alloca, parse_instruction_call, parse_instruction_store, AllocaError,
+        CallError, StoreInstructionError,
+    },
     util::{types::Type, value::Value},
     Fields,
 };
@@ -43,6 +46,10 @@ pub enum FunctionBlockError {
     #[error("Failed to parse call instruction")]
     InvalidCallRecord(#[from] CallError),
 
+    /// Failed to parse store instruction.
+    #[error("Failed to parse store instruction")]
+    InvalidStoreRecord(#[from] StoreInstructionError),
+
     /// Error from the underlying [`BitstreamReader`].
     #[error("{0}")]
     ReaderError(#[from] ReaderError),
@@ -71,7 +78,8 @@ pub fn parse_function_block<T: AsRef<[u8]>>(
         Type::Function(fty) => {
             for parameter in &fty.parameters {
                 info!("Adding parameter with type: {}", parameter);
-                ctx.values.push(Value::Argument(parameter.clone()));
+                ctx.values
+                    .push(Value::Argument(parameter.clone()), parameter.clone());
             }
         }
         _ => todo!(),
@@ -102,6 +110,7 @@ pub fn parse_function_block<T: AsRef<[u8]>>(
 
     // let mut fn_block = FnBlock::default();
 
+    let mut next_value_number = ctx.values.len() as u64;
     while let Some(entry) = bitstream.advance()? {
         match entry {
             Entry::SubBlock(block) => {
@@ -124,8 +133,13 @@ pub fn parse_function_block<T: AsRef<[u8]>>(
                         let constants = parse_constant_block(bitstream, ctx)?;
 
                         for constant in constants {
-                            ctx.values.push(Value::Constant(constant));
+                            let ty = constant.get_ty();
+                            ctx.values.push(Value::Constant(constant), ty);
                         }
+
+                        // Parsing constans should have added more values to the value list, the
+                        // next value number must be updated.
+                        next_value_number = ctx.values.len() as u64;
                     }
                     BlockId::ValueSymtab => {
                         warn!("Skipping BlockId::ValueSymtab");
@@ -155,6 +169,8 @@ pub fn parse_function_block<T: AsRef<[u8]>>(
                     warn!("Unknown function code: {code}, skipping");
                     continue;
                 };
+
+                println!("record: {:?}", record);
 
                 let instruction = match code {
                     FunctionCode::DeclareBlocks => {
@@ -217,7 +233,7 @@ pub fn parse_function_block<T: AsRef<[u8]>>(
                         info!("InstPhi");
                         todo!("InstPhi")
                     }
-                    FunctionCode::InstAlloca => parse_instruction_alloca(&record, ctx)?,
+                    FunctionCode::InstAlloca => Some(parse_instruction_alloca(&record, ctx)?),
                     FunctionCode::InstLoad => {
                         info!("InstLoad");
                         todo!("InstLoad")
@@ -256,12 +272,14 @@ pub fn parse_function_block<T: AsRef<[u8]>>(
                     }
                     FunctionCode::DebugLocAgain => {
                         info!("DebugLocAgain");
-                        todo!("DebugLocAgain")
+                        None
                     }
-                    FunctionCode::InstCall => parse_instruction_call(&record, ctx)?,
+                    FunctionCode::InstCall => {
+                        Some(parse_instruction_call(&record, ctx, next_value_number)?)
+                    }
                     FunctionCode::DebugLoc => {
                         info!("DebugLoc");
-                        todo!("DebugLoc")
+                        None
                     }
                     FunctionCode::InstFence => {
                         info!("InstFence");
@@ -296,8 +314,7 @@ pub fn parse_function_block<T: AsRef<[u8]>>(
                         todo!("InstGep")
                     }
                     FunctionCode::InstStore => {
-                        info!("InstStore");
-                        todo!("InstStore")
+                        Some(parse_instruction_store(&record, ctx, next_value_number)?)
                     }
                     FunctionCode::InstStoreAtomic => {
                         info!("InstStoreAtomic");
@@ -357,8 +374,19 @@ pub fn parse_function_block<T: AsRef<[u8]>>(
                     }
                 };
 
-                info!("Parsed instruction: {instruction}");
                 debug!("Parsed instruction: {:?}", instruction);
+                if let Some(instruction) = instruction {
+                    info!("Parsed instruction: {instruction}");
+                    // Result of the instruction is added as a value unless it doesn't return anything.
+                    //
+                    // Assume `None` equals void for now.
+                    if let Some(ty) = instruction.get_type() {
+                        if !matches!(ty.as_ref(), Type::Void) {
+                            ctx.values.push(Value::Instruction(instruction), ty);
+                            next_value_number += 1;
+                        }
+                    }
+                }
             }
         }
     }

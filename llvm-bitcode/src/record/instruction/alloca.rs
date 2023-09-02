@@ -128,7 +128,7 @@ pub fn parse_instruction_alloca<const N: usize>(
     record: &SmallVec<[u64; N]>,
     ctx: &Context,
 ) -> Result<Instruction, AllocaError> {
-    if record.len() < 4 {
+    if record.len() != 4 && record.len() != 5 {
         return Err(AllocaError::IncompleteRecord);
     }
 

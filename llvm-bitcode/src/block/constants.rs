@@ -98,10 +98,52 @@ pub enum BitcodeConstant {
     Struct(Rc<Type>, SmallVec<[u32; 16]>),
 
     /// Inline assembly
-    InlineAsm(InlineAsm),
+    InlineAsm(Rc<Type>, InlineAsm),
 
     /// Constant expression.
-    Expr(BitcodeConstantExpr),
+    Expr(Rc<Type>, BitcodeConstantExpr),
+}
+
+impl std::fmt::Display for BitcodeConstant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BitcodeConstant::Undef(t) => write!(f, "bc-constant: {t}"),
+            BitcodeConstant::Poison(t) => write!(f, "bc-constant: {t}"),
+            BitcodeConstant::Data(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::Integer(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::FloatingPoint(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::PointerNull(t) => write!(f, "bc-constant: {t}"),
+            BitcodeConstant::AggregateZero(t) => write!(f, "bc-constant: {t}"),
+            BitcodeConstant::Array(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::DataArray(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::Vector(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::DataVector(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::Struct(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::InlineAsm(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+            BitcodeConstant::Expr(t, v) => write!(f, "bc-constant: {t}: {v:?}"),
+        }
+    }
+}
+
+impl BitcodeConstant {
+    pub fn get_ty(&self) -> Rc<Type> {
+        match self {
+            BitcodeConstant::Undef(t) => t.clone(),
+            BitcodeConstant::Poison(t) => t.clone(),
+            BitcodeConstant::Data(t, _) => t.clone(),
+            BitcodeConstant::Integer(t, _) => t.clone(),
+            BitcodeConstant::FloatingPoint(t, _) => t.clone(),
+            BitcodeConstant::PointerNull(t) => t.clone(),
+            BitcodeConstant::AggregateZero(t) => t.clone(),
+            BitcodeConstant::Array(t, _) => t.clone(),
+            BitcodeConstant::DataArray(t, _) => t.clone(),
+            BitcodeConstant::Vector(t, _) => t.clone(),
+            BitcodeConstant::DataVector(t, _) => t.clone(),
+            BitcodeConstant::Struct(t, _) => t.clone(),
+            BitcodeConstant::InlineAsm(t, _) => t.clone(),
+            BitcodeConstant::Expr(t, _) => t.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -193,7 +235,7 @@ pub fn parse_constant_block<T: AsRef<[u8]>>(
             continue;
         }
 
-        let ty = current_ty.clone().ok_or(ConstantError::InvalidRecord)?;
+        let ty: Rc<Type> = current_ty.clone().ok_or(ConstantError::InvalidRecord)?;
         let constant = match code {
             // Already handled.
             ConstantsCode::SetType => unreachable!(),
@@ -331,7 +373,7 @@ pub fn parse_constant_block<T: AsRef<[u8]>>(
                     asm: String::new(),
                     constant: String::new(),
                 };
-                BitcodeConstant::InlineAsm(inline_asm)
+                BitcodeConstant::InlineAsm(ty.clone(), inline_asm)
             }
 
             // Constant expressions
@@ -357,9 +399,10 @@ pub fn parse_constant_block<T: AsRef<[u8]>>(
                     .ok_or(ConstantError::InvalidUnaryOpRecord)?;
 
                 match op_code {
-                    UnaryOperationCode::FloatingPointNegation => {
-                        BitcodeConstant::Expr(BitcodeConstantExpr::FpNeg(ty.clone(), record[1]))
-                    }
+                    UnaryOperationCode::FloatingPointNegation => BitcodeConstant::Expr(
+                        ty.clone(),
+                        BitcodeConstantExpr::FpNeg(ty.clone(), record[1]),
+                    ),
                 }
             }
 

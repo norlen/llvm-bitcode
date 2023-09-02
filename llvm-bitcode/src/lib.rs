@@ -77,7 +77,7 @@
 )]
 // END - Embark standard lints v6 for Rust 1.55+
 // crate-specific exceptions:
-// #![allow()]
+#![allow(non_upper_case_globals)]
 
 pub mod bitcodes;
 mod block;

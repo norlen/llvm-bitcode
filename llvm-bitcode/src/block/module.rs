@@ -240,7 +240,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         let constants = parse_constant_block(bitstream, ctx)?;
 
                         for constant in constants {
-                            ctx.values.push(Value::Constant(constant));
+                            let ty = constant.get_ty();
+                            ctx.values.push(Value::Constant(constant), ty);
                         }
                     }
                     BlockId::Function => {
@@ -390,9 +391,9 @@ pub fn parse_module<T: AsRef<[u8]>>(
                         module_info.hash(hash);
                     }
                     ModuleCode::GlobalVariable => {
-                        let (global_variable, _ty, _init_id) = parse_global_variable(&record, ctx)?;
+                        let (global_variable, ty, _init_id) = parse_global_variable(&record, ctx)?;
                         info!("parse global: {global_variable}");
-                        ctx.values.push(Value::GlobalVariable(global_variable));
+                        ctx.values.push(Value::GlobalVariable(global_variable), ty);
                     }
                     ModuleCode::Function => {
                         let function = parse_function_record(&record, ctx)?;
@@ -400,7 +401,8 @@ pub fn parse_module<T: AsRef<[u8]>>(
 
                         // Keep track of function types so we can match these with parsing function blocks.
                         functions.push_back(function.clone());
-                        ctx.values.push(Value::Function(function));
+                        let ty = function.ty.clone();
+                        ctx.values.push(Value::Function(function), ty);
                     }
                     ModuleCode::AliasOld => info!("AliasOld record"),
                     ModuleCode::Alias => info!("Alias record"),

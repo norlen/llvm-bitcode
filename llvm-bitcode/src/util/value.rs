@@ -28,6 +28,22 @@ pub enum Value {
     /// Instructions inside a function block, the resulting value comes from evaluating the
     /// instruction.
     Instruction(Instruction),
+
+    // Temporary
+    Metadata,
+}
+
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Constant(v) => write!(f, "[Constant] {v}"),
+            Value::GlobalVariable(v) => write!(f, "[Global] {v}"),
+            Value::Function(v) => write!(f, "[Function] {v}"),
+            Value::Argument(v) => write!(f, "[Argument] {v}"),
+            Value::Instruction(v) => write!(f, "[Instruction] {v}"),
+            Value::Metadata => write!(f, "metadata"),
+        }
+    }
 }
 
 /// Values currently in use by the parser.
@@ -38,6 +54,8 @@ pub struct ValueList {
     /// Mapping of value index to a value, a map is used since values can be forward declared, i.e.,
     /// parts of the IR can reference later values.
     values: HashMap<u64, Rc<Value>>,
+
+    types: HashMap<u64, Rc<Type>>,
 
     /// Keep track of our current size.
     size: u64,
@@ -52,6 +70,7 @@ impl ValueList {
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
+            types: HashMap::new(),
             size: 0,
             scope_indices: Vec::new(),
         }
@@ -62,13 +81,18 @@ impl ValueList {
     }
 
     ///
-    pub fn push(&mut self, value: Value) {
+    pub fn push(&mut self, value: Value, ty: Rc<Type>) {
         self.values.insert(self.size, Rc::new(value));
+        self.types.insert(self.size, ty);
         self.size += 1;
     }
 
     pub fn get(&self, index: u64) -> Option<&Rc<Value>> {
         self.values.get(&index)
+    }
+
+    pub fn get_ty(&self, index: u64) -> Option<&Rc<Type>> {
+        self.types.get(&index)
     }
 
     pub fn push_scope(&mut self) {
@@ -78,6 +102,28 @@ impl ValueList {
     pub fn pop_scope(&mut self) {
         let pop_to = self.scope_indices.pop().expect("at the outermost scope");
         self.values.retain(|&k, _| k < pop_to);
+        self.types.retain(|&k, _| k < pop_to);
+    }
+
+    pub fn debug(&self) {
+        println!("=== ValueList ===");
+        let mut values = self.values.iter().map(|(i, v)| (i, v)).collect::<Vec<_>>();
+        values.sort_by(|a, b| a.0.cmp(b.0));
+
+        for (i, value) in values {
+            println!("{}: {:?}", i, value);
+        }
+        println!("=== ValueList END ===");
+    }
+    pub fn debug_pretty(&self) {
+        println!("=== ValueList ===");
+        let mut values = self.values.iter().map(|(i, v)| (i, v)).collect::<Vec<_>>();
+        values.sort_by(|a, b| a.0.cmp(b.0));
+
+        for (i, value) in values {
+            println!("{}: {}", i, value);
+        }
+        println!("=== ValueList END ===");
     }
 }
 

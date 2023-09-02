@@ -17,7 +17,7 @@ tracing = "0.1.37"
 num_enum = "0.6.0"
 num-bigint = "0.4"
 smallvec = { version = "1.10.0", features = ["union", "const_generics", "const_new"]}
-bitflags = "2.2.1"
+bitflags = "2.4.0"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
